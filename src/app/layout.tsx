@@ -4,6 +4,7 @@ import Navigation from "@/components/layout/Navigation";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import QueryProvider from "@/components/notice/QuerryProvider";
 
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -21,6 +22,7 @@ return (
 <html lang="vi" className="h-full">
 <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-gray-50`}>
 <AuthProvider>
+    <QueryProvider>
 <div className="min-h-screen flex flex-col">
 {/* Sticky, translucent nav with backdrop for readability */}
 <Navigation />
@@ -37,6 +39,7 @@ If your pages already handle container spacing, you can remove the wrapper below
 </div>
 </main>
 </div>
+</QueryProvider>
 </AuthProvider>
 </body>
 </html>

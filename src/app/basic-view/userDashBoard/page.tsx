@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Baby,
   Briefcase,
+  CalendarX,
 } from "lucide-react";
 import {
   BarChart,
@@ -56,7 +57,8 @@ const getAge = (dob?: string | Date | null) => {
 const isSameMonth = (d?: string | Date | null, ref = new Date()) => {
   if (!isValid(d)) return false;
   const t = typeof d === "string" ? new Date(d) : d!;
-  return t.getMonth() === ref.getMonth() && t.getFullYear() === ref.getFullYear();
+  return t.getMonth() === ref.getMonth() 
+  //&& t.getFullYear() === ref.getFullYear();
 };
 const isSameYear = (d?: string | Date | null, ref = new Date()) => {
   if (!isValid(d)) return false;
@@ -109,6 +111,9 @@ const Section: React.FC<{ title: string; children: React.ReactNode; right?: Reac
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">{children}</div>
   </section>
 );
+const startOfMonth = (ref = new Date()) => new Date(ref.getFullYear(), ref.getMonth(), 1, 0,0,0,0);
+const endOfMonth   = (ref = new Date()) => new Date(ref.getFullYear(), ref.getMonth()+1, 0, 23,59,59,999);
+
 
 // ========= Main Component =========
 const HRUsersDashboard: React.FC = () => {
@@ -268,6 +273,48 @@ const HRUsersDashboard: React.FC = () => {
     };
   }, [aggs, users.length]);
 
+  const { resignedMonth, resignedYear } = useMemo(() => {
+  const now = new Date();
+  const mFrom = startOfMonth(now), mTo = endOfMonth(now);
+  const year = now.getFullYear();
+
+  const monthSet = new Set<string>(); // tránh trùng người
+  const yearSet  = new Set<string>();
+
+  for (const a of aggs) {
+    const pa = a.primaryAssignment;
+    if (!pa) continue;
+
+    const inactive = pa.isActive === false;        // người đã nghỉ
+    const tOutRaw: any = pa.timeOut ; // phòng hờ tên field
+    if (!inactive || !tOutRaw) continue;
+
+    const tOut = new Date(tOutRaw);
+    if (isNaN(tOut.getTime())) continue;
+
+    // Nghỉ trong tháng hiện tại (timeOut ∈ [mFrom, mTo])
+    if (tOut >= mFrom && tOut <= mTo) monthSet.add(String(a.user._id));
+
+    // Nghỉ trong năm hiện tại
+    if (tOut.getFullYear() === year) yearSet.add(String(a.user._id));
+  }
+
+  return { resignedMonth: monthSet.size, resignedYear: yearSet.size };
+}, [aggs]);
+
+const birthdaysThisMonth = useMemo(() => {
+    const now = new Date();
+    return users
+      .filter(u => isSameMonth(u.birthDay, now))
+      .map(u => {
+        const d = new Date(u.birthDay as any);
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        return { id: (u as any)._id, name: u.fullName || (u as any).email || "—", dm: `${dd}/${mm}`, day: d.getDate() };
+      })
+      .sort((a, b) => a.day - b.day);
+  }, [users]);
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -279,6 +326,10 @@ const HRUsersDashboard: React.FC = () => {
     );
   }
 
+  // Define color palette for charts
+  const barColors = ["#4338ca", "#a5b4fc", "#c7d2fe", "#e0e7ff", "#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8", "#2563eb", "#1e40af", "#3730a3", "#4f46e5"];
+  const pieColors = ["#0e7490", "#22d3ee", "#67e8f9", "#06b6d4", "#0891b2", "#164e63"];
+  
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8">
@@ -304,10 +355,33 @@ const HRUsersDashboard: React.FC = () => {
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card title="Mới vào tháng này" value={joinedThisMonth} icon={<Briefcase className="h-5 w-5 text-emerald-700" />} />
         <Card title="Mới vào năm nay" value={joinedThisYear} icon={<Briefcase className="h-5 w-5 text-teal-700" />} />
+        <Card
+    title="Nghỉ trong tháng"
+    value={resignedMonth}    
+    icon={<CalendarX className="h-5 w-5 text-rose-700" />}
+  />
+  <Card
+    title="Nghỉ trong năm"
+    value={resignedYear}
+    subtitle={`Năm ${new Date().getFullYear()}`}
+    icon={<Briefcase className="h-5 w-5 text-amber-700" />}
+  />
         <div className="sm:col-span-2" />
       </div>
 
       {/* Positions distribution */}
+      {birthdaysThisMonth.length > 0 && (
+  <Section title="Sinh nhật trong tháng">
+    <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {birthdaysThisMonth.map(b => (
+        <li key={b.id} className="flex items-center justify-between rounded-lg border p-3">
+          <span className="font-medium truncate">{b.name}</span>
+          <span className="rounded bg-pink-50 px-2 py-0.5 text-xs font-semibold text-pink-700">{b.dm}</span>
+        </li>
+      ))}
+    </ul>
+  </Section>
+)}
       <Section title="Phân bổ theo chức vụ">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 h-72">
@@ -317,7 +391,7 @@ const HRUsersDashboard: React.FC = () => {
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={70} />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#4f46e5" activeBar={{ fill: "#6366f1", stroke: "#4f46e5" }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -350,21 +424,21 @@ const HRUsersDashboard: React.FC = () => {
           <div className="lg:col-span-3 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={workTypeStats} dataKey="count" nameKey="type" outerRadius={110} innerRadius={50} paddingAngle={4}>
+                <Pie data={workTypeStats} dataKey="count" nameKey="type" outerRadius={110} innerRadius={50} paddingAngle={4} animationDuration={500}>
                   {workTypeStats.map((_, i) => (
-                    <Cell key={i} />
+                    <Cell key={i} fill={pieColors[i % pieColors.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" />
               </PieChart>
             </ResponsiveContainer>
           </div>
           <div className="lg:col-span-2">
             <ul className="space-y-2">
-              {workTypeStats.map((w) => (
+              {workTypeStats.map((w, i) => (
                 <li key={w.type} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-2">
-                  <span className="text-sm text-gray-700">{w.type || "unknown"}</span>
+                  <span className="text-sm text-gray-700" style={{ color: pieColors[i % pieColors.length] }}>{w.type || "unknown"}</span>
                   <span className="text-sm font-semibold text-gray-900">{w.count}</span>
                 </li>
               ))}

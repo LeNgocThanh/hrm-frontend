@@ -164,11 +164,11 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
       </header>
 
       {/* Cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card icon={<Building2 className="h-5 w-5" />} title="Số phòng họp" value={rooms.length} hint="Tổng số phòng" />
-        <Card icon={<CalendarDays className="h-5 w-5" />} title="Cuộc họp đã diễn ra" value={isLoading ? '…' : totals.totalMeetings} hint={range==='week'?'Tuần hiện tại':'Tháng hiện tại'} loading={isLoading} />
-        <Card icon={<UserCircle2 className="h-5 w-5" />} title="Người tham gia (nội bộ)" value={isLoading ? '…' : totals.internal} loading={isLoading} />
-        <Card icon={<Users className="h-5 w-5" />} title="Khách tham dự" value={isLoading ? '…' : totals.guests} loading={isLoading} />
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ">
+        <Card icon={<Building2 className="h-5 w-5 bg-blue-500" />} title="Số phòng họp" value={rooms.length} hint="Tổng số phòng" />
+        <Card icon={<CalendarDays className="h-5 w-5 bg-blue-500" />} title="Cuộc họp đã diễn ra" value={isLoading ? '…' : totals.totalMeetings} hint={range==='week'?'Tuần hiện tại':'Tháng hiện tại'} loading={isLoading} />
+        <Card icon={<UserCircle2 className="h-5 w-5 bg-blue-500" />} title="Người tham gia (nội bộ)" value={isLoading ? '…' : totals.internal} loading={isLoading} />
+        <Card icon={<Users className="h-5 w-5 bg-blue-500" />} title="Khách tham dự" value={isLoading ? '…' : totals.guests} loading={isLoading} />
       </section>
 
       {/* Bảng theo từng phòng */}

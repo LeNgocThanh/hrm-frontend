@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import HomeInsights from '@/components/dashboard/homeInsights';
 
 const features = [  
   {
@@ -35,6 +36,7 @@ export default function Home() {
           Giải pháp toàn diện cho việc quản lý nhân sự và tổ chức doanh nghiệp
         </p>
       </div>
+      <HomeInsights />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
         {features.map((feature) => (
