@@ -6,8 +6,7 @@ export enum NoticeStatus {
 
 export enum NoticeVisibility {
   Public = 'public',
-  Internal = 'internal',
-  RoleBased = 'role_based',
+  Internal = 'internal', 
 }
 
 export interface FileRef {

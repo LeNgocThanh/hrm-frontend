@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { userProfileApi } from '@/lib/api/userProfile';
-import { UserProfile, CreateUserProfileDto, UpdateUserProfileDto } from '@/types/userProfile';
+import { UserProfile, CreateUserProfileDto, UpdateUserProfileDto, EDUCATION_LEVELS } from '@/types/userProfile';
 //import { useAuth } from '@/context/AuthContext';
 
 interface UserProfileResponse extends UserProfile {
@@ -29,6 +29,8 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
     bankAccount: '',
     bankName: '',
     bankBranch: '',
+    educationLevel: EDUCATION_LEVELS.BACHELOR_DEGREE,
+    certificate: '',
   });
 
   const [existingProfile, setExistingProfile] = useState<UserProfileResponse | null>(null);
@@ -60,6 +62,8 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
         bankAccount: profile.bankAccount || '',
         bankName: profile.bankName || '',
         bankBranch: profile.bankBranch || '',
+        educationLevel: profile.educationLevel || EDUCATION_LEVELS.BACHELOR_DEGREE,
+        certificate: profile.certificate,
       });
       setIsEditing(true);
     } catch (error: any) {
@@ -77,6 +81,8 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
           bankAccount: '',
           bankName: '',
           bankBranch: '',
+          educationLevel: EDUCATION_LEVELS.BACHELOR_DEGREE,
+          certificate: '',
         });
         setIsEditing(false);
       } else {
@@ -284,6 +290,33 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
                     placeholder="Nhập chi nhánh"
                   />
                 </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-1">
+                    Trình độ học vấn:
+                  </label>
+                  <select
+                    value={profileForm.educationLevel}
+                    onChange={(e) => handleInputChange('educationLevel', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="highSchool">Cấp 3</option>
+                    <option value="vocationalSchool">Trung cấp</option>
+                    <option value="bachelorDegree">Đại học</option>
+                    <option value="masterDegree">Thạc sỹ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-1">
+                    Chứng chỉ:
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.certificate}
+                    onChange={(e) => handleInputChange('certificate', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Nhập các loại chứng chỉ"
+                  />
+                </div>
               </div>
             </div>
 
@@ -431,6 +464,24 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
                 <label className="text-sm font-medium text-gray-500">Chi nhánh</label>
                 <p className="text-gray-900 mt-1">{existingProfile.bankBranch || 'Chưa cập nhật'}</p>
               </div>
+            </div>
+          </div>
+           <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <h5 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+              <span className="w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mr-2 text-sm">
+                🏦
+              </span>
+              Thông tin trình dộ học vấn
+            </h5>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Học vấn</label>
+                <p className="text-gray-900 mt-1 font-mono">{existingProfile.educationLevel || 'Chưa cập nhật'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Các loại chứng chỉ</label>
+                <p className="text-gray-900 mt-1">{existingProfile.certificate || 'Chưa cập nhật'}</p>
+              </div>              
             </div>
           </div>
         </div>

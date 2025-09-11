@@ -7,7 +7,14 @@ import { useAuth } from "@/context/AuthContext";
 import Bell from "@/components/notifications/Bell";
 
 const navigationItems = [
-  { name: "Trang chủ", href: "/", icon: "🏠" },
+  { name: "Trang chủ", href: "/", icon: "🏠",
+    children: [
+      { name: "Trang chủ", href: "/", icon: "🏠" },
+      { name: "Thông báo", href: "/notices", icon: "📣" },
+      { name: "Quản trị thông báo", href: "/notices/admin", icon: "🛠️📣" },
+      { name: "Tạo thông báo mới", href: "/notices/new", icon: "📣" },
+    ],
+   },
   {
     name: "Quản trị nhân sự",
     icon: "👨‍💼",

@@ -9,6 +9,7 @@ export async function getUserAssignmentsByUser(userId: string): Promise<UserAssi
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json' 
     },
+    credentials: 'include',
     cache: 'no-store' 
   });
   return res.json();
@@ -19,6 +20,7 @@ export async function createUserAssignment(data: Partial<UserAssignment>): Promi
     method: 'POST',
     headers: { 'Authorization': `Bearer ${accessToken}`,
      'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   return res.json();
@@ -29,6 +31,7 @@ export async function updateUserAssignmentPATCH(id: string, data: Partial<UserAs
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${accessToken}`,
      'Content-Type': 'application/json' },
+     credentials: 'include',
     body: JSON.stringify(data),
   });
   return res.json();
@@ -39,11 +42,12 @@ export async function updateUserAssignment(id: string, data: Partial<UserAssignm
     method: 'PUT',
     headers: { 'Authorization': `Bearer ${accessToken}`,
      'Content-Type': 'application/json' },
+     credentials: 'include',
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
 export async function deleteUserAssignment(id: string): Promise<void> {
-  await fetch(`${API_URL}/user-assignments/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${accessToken}` } });
+  await fetch(`${API_URL}/user-assignments/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${accessToken}` }, credentials: 'include' });
 } 

@@ -1,20 +1,131 @@
-import Image from 'next/image';
+'use client';
+
+//import Image from 'next/image';
 import Link from 'next/link';
 import type { Notice } from '@/types/notice';
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { patchNoticeAdmin } from '@/lib/api/notices';
+import { VI_STATUS, VI_VISIBILITY, VIS_OPTIONS_VI, STATUS_OPTIONS_VI, VI_MISC } from '@/i18n/notice.vi';
+// ⬇️ Adjust this import to match your project structure if different
+import { getFileInfo, filePublicUrl } from '@/lib/api/files';
 
-export default function NoticeCard({ item }: { item: Notice }) {
-  const cover =
-    typeof item.coverImage === 'string'
-      ? item.coverImage
-      : item.coverImage?.url || undefined;
+export default function NoticeCard({
+  item,
+  adminControls = false,
+}: {
+  item: Notice;
+  adminControls?: boolean;
+}) {
+  // --- Resolve cover image from `coverImage` which is an ID ---
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveCover() {
+      try {
+        setCoverError(null);
+        if (!item?.coverImage) {
+          setCoverUrl(null);
+          return;
+        }
+
+        // If coverImage is an ID (string) -> fetch file info -> public URL from path
+        if (typeof item.coverImage === 'string') {
+          const fi = await getFileInfo(item.coverImage);
+          console.log('fi', fi);
+          if (cancelled) return;
+          const url = fi?.path ? filePublicUrl(fi) : undefined;         
+          setCoverUrl(url || null);
+          return;
+        }
+
+        // If API already returned an object (rare case) -> try known fields
+        const obj: any = (item as any).coverImage;
+        const url = obj?.publicUrl || (obj?.path ? filePublicUrl(obj.path) : obj?.url);
+        setCoverUrl(url || null);
+      } catch (e: any) {
+        if (!cancelled) {
+          setCoverUrl(null);
+          setCoverError(e?.message || 'Không thể tải ảnh bìa');
+          // fail silently in UI; optionally log
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('Resolve cover error:', e);
+          }
+        }
+      }
+    }
+
+    resolveCover();
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.coverImage]);
+
+  // --- optimistic admin controls state ---
+  const qc = useQueryClient();
+  const [localStatus, setLocalStatus] = useState<Notice['status']>(item.status);
+  const [localVis, setLocalVis] = useState<Notice['visibility']>(item.visibility);
+  const [saving, setSaving] = useState<null | 'status' | 'visibility'>(null);
+  const [ok, setOk] = useState<null | 'status' | 'visibility'>(null);
+
+  const { mutateAsync } = useMutation({
+    mutationFn: (payload: { status?: Notice['status']; visibility?: Notice['visibility'] }) =>
+      patchNoticeAdmin(item._id, payload),
+    onSuccess: (updated) => {
+      setLocalStatus(updated.status);
+      setLocalVis(updated.visibility);
+      qc.invalidateQueries({ queryKey: ['notices'] });
+    },
+  });
+
+  const handleStatus = async (next: Notice['status']) => {
+    try {
+      setSaving('status');
+      setLocalStatus(next);
+      await mutateAsync({ status: next });
+      setOk('status');
+      setTimeout(() => setOk(null), 1500);
+    } catch (e) {
+      setLocalStatus(item.status);
+      console.error(e);
+      alert('Cập nhật status không thành công.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleVisibility = async (next: Notice['visibility']) => {
+    try {
+      setSaving('visibility');
+      setLocalVis(next);
+      await mutateAsync({ visibility: next });
+      setOk('visibility');
+      setTimeout(() => setOk(null), 1500);
+    } catch (e) {
+      setLocalVis(item.visibility);
+      console.error(e);
+      alert('Cập nhật visibility không thành công.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  // chặn overlay/link bắt sự kiện trên controls
+  const stop = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    // giúp menu native của <select> không bị đóng do bubbling
+    e.nativeEvent?.stopImmediatePropagation?.();
+  };
 
   return (
-    <article className="rounded-2xl border p-4 shadow-sm hover:shadow-md transition">
+    <article className="relative overflow-visible rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
       <div className="flex items-start gap-4">
-        {cover ? (
+        {coverUrl ? (
           <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-lg">
-            {/* Nếu cover là url ảnh trực tiếp */}
-            <Image src={cover} alt={item.title} fill className="object-cover" />
+            <img src={coverUrl} alt={item.title}  className="object-cover" />
           </div>
         ) : (
           <div className="h-24 w-36 shrink-0 rounded-lg bg-gray-100" />
@@ -24,7 +135,7 @@ export default function NoticeCard({ item }: { item: Notice }) {
           <div className="flex items-center gap-2">
             {item.pinned ? (
               <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
-                Pinned
+                {VI_MISC.pinned}
               </span>
             ) : null}
             {item.category ? (
@@ -49,8 +160,58 @@ export default function NoticeCard({ item }: { item: Notice }) {
               </span>
             ))}
           </div>
+
+          {/* ADMIN CONTROLS */}
+          {adminControls && (
+            <div className="relative z-[60] mt-3" onClick={stop} onMouseDown={stop}>
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white/80 p-2 shadow-sm">
+                {/* Status */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="w-20 shrink-0 text-gray-600">{VI_MISC.status}</span>
+                  <select
+                    className="w-40 rounded-lg border bg-white px-2 py-1 outline-none ring-0 focus:ring-2 focus:ring-black/10 disabled:opacity-50"
+                    value={localStatus}
+                    disabled={saving === 'status'}
+                    onChange={(e) => handleStatus(e.target.value as Notice['status'])}
+                  >
+                    {STATUS_OPTIONS_VI.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {ok === 'status' && <span className="text-xs text-emerald-600">✓ Đã lưu</span>}
+                </div>
+
+                {/* Visibility */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="w-20 shrink-0 text-gray-600">{VI_MISC.visibility}</span>
+                  <select
+                    className="w-40 rounded-lg border bg-white px-2 py-1 outline-none ring-0 focus:ring-2 focus:ring-black/10 disabled:opacity-50"
+                    value={localVis}
+                    disabled={saving === 'visibility'}
+                    onChange={(e) => handleVisibility(e.target.value as Notice['visibility'])}
+                  >
+                    {VIS_OPTIONS_VI.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {ok === 'visibility' && (
+                    <span className="text-xs text-emerald-600">✓ Đã lưu</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Optional: show a tiny warning if cover failed */}
+      {coverError && (
+        <p className="mt-2 text-xs text-amber-600">{coverError}</p>
+      )}
     </article>
   );
 }

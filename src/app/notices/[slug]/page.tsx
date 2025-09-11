@@ -1,20 +1,113 @@
-import type { Notice } from '@/types/notice';
-import { getNoticeBySlug } from '@/lib/api/notices';
-import Image from 'next/image';
+'use client'
 
-interface Props {
-  params: { slug: string };
-}
+import { useEffect, useMemo, useState } from "react";
+import type { Notice } from '@/types/notice'
+import { getNoticeBySlug } from '@/lib/api/notices'
+import AttachmentList from '@/components/AttachmentList'
+import { getFileInfo, getFileInfos, filePublicUrl } from '@/lib/api/files'
+import { useParams } from "next/navigation";
 
-export default async function NoticeDetailPage({ params }: Props) {
-  const notice: Notice = await getNoticeBySlug(params.slug);
+import type { UploadFileRef, UploadFileInfo, UploadResponse } from '@/types/upload'
 
-  const cover =
-    typeof notice.coverImage === 'string'
-      ? notice.coverImage
-      : notice.coverImage && 'url' in notice.coverImage
-      ? (notice.coverImage as any).url
-      : undefined;
+interface Props { params: { slug: string } }
+
+export default function NoticeDetailClientPage() {
+  const params = useParams();
+  const slug = useMemo(() => {
+    // supports catch-all or standard dynamic route
+    const raw = (params?.slug ?? "") as string | string[];
+    return Array.isArray(raw) ? raw[0] : raw;
+  }, [params]);
+
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | undefined>();
+  const [attachments, setAttachments] = useState<UploadFileInfo[] | UploadFileRef[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        // 1) Load notice
+        const n = await getNoticeBySlug(slug);
+        if (cancelled) return;
+        setNotice(n);
+
+        // 2) Resolve cover
+        let cUrl: string | undefined = undefined;
+        if (typeof n.coverImage === "string" && n.coverImage) {
+          try {
+            const fi = await getFileInfo(n.coverImage);
+            if (!cancelled) cUrl = filePublicUrl(fi);
+          } catch {
+            // ignore
+          }
+        } else if (n.coverImage && typeof n.coverImage === "object") {
+          cUrl = filePublicUrl(n.coverImage as UploadFileInfo | UploadFileRef);
+        }
+        if (!cancelled) setCoverUrl(cUrl);
+
+        // 3) Resolve attachments
+        const rawAtt = (n.attachments ?? []) as (string | UploadFileInfo | UploadFileRef)[];
+        let files: UploadFileInfo[] | UploadFileRef[] = [];
+        if (rawAtt.length && typeof rawAtt[0] === "string") {
+          try {
+            files = await getFileInfos(rawAtt as string[]);
+          } catch {
+            files = [];
+          }
+        } else {
+          files = rawAtt as UploadFileInfo[] | UploadFileRef[];
+        }
+        if (!cancelled) setAttachments(files);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? "Đã xảy ra lỗi khi tải dữ liệu");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    if (slug) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  if (!slug) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <p className="text-gray-500">Không xác định được tham số "slug".</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <p className="text-gray-500">Đang tải thông báo…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <p className="text-red-600">Lỗi: {error}</p>
+      </div>
+    );
+  }
+
+  if (!notice) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <p className="text-gray-500">Không tìm thấy thông báo.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4">
@@ -29,40 +122,28 @@ export default async function NoticeDetailPage({ params }: Props) {
 
       <h1 className="text-3xl font-bold">{notice.title}</h1>
 
-      {cover ? (
+      {coverUrl ? (
         <div className="relative h-64 w-full overflow-hidden rounded-2xl">
-          <Image src={cover} alt={notice.title} fill className="object-cover" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={coverUrl} alt={notice.title} className="h-full w-full object-cover" />
         </div>
       ) : null}
 
-      {notice.summary ? <p className="text-gray-600">{notice.summary}</p> : null}
+      {notice.summary ? (
+        <p className="text-gray-600">{notice.summary}</p>
+      ) : null}
 
-      {/* Nội dung hiển thị đơn giản; nếu bạn lưu Markdown, hãy render bằng markdown renderer */}
       {notice.content ? (
-        <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: notice.content }} />
+        <div
+          className="prose max-w-none"
+          // content is assumed to be sanitized on the server/API side
+          dangerouslySetInnerHTML={{ __html: notice.content }}
+        />
       ) : (
         <p className="text-gray-500">Chưa có nội dung chi tiết.</p>
       )}
 
-      {(notice.attachments || []).length ? (
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Tệp đính kèm</h2>
-          <ul className="list-inside list-disc">
-            {notice.attachments!.map((f) => (
-              <li key={f._id}>
-                {/* TODO: thay href bằng API tải tệp thật của bạn */}
-                <a
-                  href={f.url || '#'}
-                  className="text-blue-600 underline hover:no-underline"
-                  target="_blank"
-                >
-                  {f.filename || 'Tệp đính kèm'}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <AttachmentList files={attachments as any} />
     </div>
   );
 }

@@ -1,3 +1,11 @@
+export enum EDUCATION_LEVELS  {
+    HIGH_SCHOOL = "highSchool",
+    VOCATIONAL_SCHOOL = "vocationalSchool",
+    BACHELOR_DEGREE = "bachelorDegree",
+    MASTER_DEGREE = "masterDegree",
+    DOCTORAL_DEGREE = "doctoralDegree",
+};
+
 export interface UserProfile {
   _id?: string;
   userId: string;
@@ -13,6 +21,8 @@ export interface UserProfile {
   bankBranch?: string;
   createdAt?: string;
   updatedAt?: string;
+  educationLevel?: EDUCATION_LEVELS;
+  certificate?: string;
 }
 
 export interface CreateUserProfileDto {
@@ -27,6 +37,8 @@ export interface CreateUserProfileDto {
   bankAccount?: string;
   bankName?: string;
   bankBranch?: string;
+  educationLevel?: EDUCATION_LEVELS;
+  certificate?: string;
 }
 
 export interface UpdateUserProfileDto {
@@ -40,6 +52,8 @@ export interface UpdateUserProfileDto {
   bankAccount?: string;
   bankName?: string;
   bankBranch?: string;
+  educationLevel?: EDUCATION_LEVELS;
+  certificate?: string;
 }
 
 export interface UserProfileResponse extends UserProfile {
