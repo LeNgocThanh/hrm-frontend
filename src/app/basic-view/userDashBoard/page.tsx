@@ -29,7 +29,7 @@ import {
 import { User } from "@/types";
 import { UserAssignment } from "@/types/user-assignment";
 import { UserDocumentResponse, DocTypeEnum } from "@/types/userDocument";
-import { UserProfile } from "@/types/userProfile";
+import { UserProfile, EDUCATION_LEVELS } from "@/types/userProfile";
 import { Position } from "@/types/position";
 
 import { getUsers } from "@/lib/api/users";
@@ -65,6 +65,16 @@ const isSameYear = (d?: string | Date | null, ref = new Date()) => {
   const t = typeof d === "string" ? new Date(d) : d!;
   return t.getFullYear() === ref.getFullYear();
 };
+
+const prettyLabel = (val?: string | null) => {
+  if (!val) return "(Chưa khai báo)";
+  // Nếu EDUCATION_LEVELS là enum string -> Object.values sẽ chứa các nhãn hợp lệ
+  const all = Object.values(EDUCATION_LEVELS).filter(v => typeof v === "string") as string[];
+  if (all.includes(val)) return val;
+  // Fallback làm đẹp từ kiểu CODE_CASE -> "Code case"
+  return val.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+};
+
 
 // Consolidated shape per USER (not per-assignment)
 interface UserAgg {
@@ -302,6 +312,30 @@ const HRUsersDashboard: React.FC = () => {
   return { resignedMonth: monthSet.size, resignedYear: yearSet.size };
 }, [aggs]);
 
+const educationStats = useMemo(() => {
+  // Chuẩn hoá danh mục từ enum (chỉ lấy giá trị string)
+  const levelValues = (Object.values(EDUCATION_LEVELS).filter(v => typeof v === "string") as string[]);
+  const map = new Map<string, number>();
+
+  // Khởi tạo đủ các “xô” theo enum để hiển thị cả những mức chưa có người
+  levelValues.forEach(lv => map.set(lv, 0));
+
+  // Thêm “xô” cho trường hợp thiếu/khác
+  const OTHER = "(Chưa khai báo)";
+  map.set(OTHER, 0);
+
+  for (const a of aggs) {
+    const raw = (a.profile as any)?.educationLevel as string | undefined;
+    const key = raw && levelValues.includes(raw) ? raw : OTHER;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+
+  // Trả về mảng đã sắp xếp giảm dần theo số lượng
+  return Array.from(map.entries())
+    .map(([name, count]) => ({ name: prettyLabel(name), count }))
+    .sort((a, b) => b.count - a.count);
+}, [aggs]);
+
 const birthdaysThisMonth = useMemo(() => {
     const now = new Date();
     return users
@@ -418,7 +452,43 @@ const birthdaysThisMonth = useMemo(() => {
         </div>
       </Section>
 
-      {/* Work type distribution */}
+      <Section title="Phân bổ theo trình độ học vấn">
+  <div className="grid gap-6 lg:grid-cols-5">   
+    <div className="lg:col-span-3 h-72">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={educationStats} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={70} />
+          <YAxis />
+          <Tooltip />
+          <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#4f46e5" activeBar={{ fill: "#6366f1", stroke: "#4f46e5" }} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+   
+    <div className="lg:col-span-2">
+      <div className="max-h-72 overflow-auto rounded-xl border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trình độ</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Số lượng</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {educationStats.map((r) => (
+              <tr key={r.name}>
+                <td className="px-4 py-2 text-sm text-gray-800">{r.name}</td>
+                <td className="px-4 py-2 text-right text-sm text-gray-800">{r.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</Section>
+     
       <Section title="Hình thức làm việc (workType)">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 h-72">
@@ -446,8 +516,7 @@ const birthdaysThisMonth = useMemo(() => {
           </div>
         </div>
       </Section>
-
-      {/* Missing dossier quick list */}
+   
       <Section title="Danh sách thiếu hồ sơ (top 12)">
         {missingList.length === 0 ? (
           <div className="text-gray-600">Tất cả đã đủ hồ sơ!</div>
