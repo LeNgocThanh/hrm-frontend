@@ -131,6 +131,7 @@ export default function AssetManagement({ assetId }: Props) {
 
   // Inline edit mode (on index page)
   const [editingInline, setEditingInline] = useState<boolean>(false);
+  const [isCreate, setIsCreate] = useState<boolean>(false);
 
   // Users
   const [users, setUsers] = useState<User[]>([]);
@@ -309,7 +310,7 @@ export default function AssetManagement({ assetId }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const payload: Partial<Asset> = { ...asset, metadata: buildMetadata() } as any;      
+      const payload: Partial<Asset> = { ...asset, metadata: buildMetadata() } as any;
       if (asset._id) {
         const updated = await updateAsset(asset._id, payload);
         setAsset(updated);
@@ -473,78 +474,78 @@ export default function AssetManagement({ assetId }: Props) {
   const handleSort = (sortBy: keyof Asset) => setSorter(prev => ({ sortBy, sortOrder: prev.sortBy === sortBy && prev.sortOrder === 'asc' ? 'desc' : 'asc' }));
 
   function fmtVN(d?: string) {
-  if (!d) return '';
-  try {
-    const dt = new Date(d);
-    const dd = String(dt.getDate()).padStart(2, '0');
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const yyyy = dt.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  } catch {
-    return d;
+    if (!d) return '';
+    try {
+      const dt = new Date(d);
+      const dd = String(dt.getDate()).padStart(2, '0');
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const yyyy = dt.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    } catch {
+      return d;
+    }
   }
-}
 
-async function handleCreateEventAndPrint(e: React.FormEvent) {
-  e.preventDefault();
-  if (!asset._id) return;
+  async function handleCreateEventAndPrint(e: React.FormEvent) {
+    e.preventDefault();
+    if (!asset._id) return;
 
-  const fromUserId =
-    (eventForm.type === AssetEventType.ASSIGN || eventForm.type === AssetEventType.TRANSFER)
-      ? asset.currentHolderId
-      : eventForm.fromUserId;
+    const fromUserId =
+      (eventForm.type === AssetEventType.ASSIGN || eventForm.type === AssetEventType.TRANSFER)
+        ? asset.currentHolderId
+        : eventForm.fromUserId;
 
-  try {
-    const created = await createAssetEvent(asset._id, {
-      type: eventForm.type,
-      date: eventForm.date,
-      note: eventForm.note,
-      cost: eventForm.amount && eventForm.currency ? { amount: eventForm.amount, currency: eventForm.currency } : undefined,
-      fromUserId,
-      toUserId: eventForm.toUserId,
-    });
-    const fresh = await listAssetEvents(asset._id);
-     flushSync(() => {
-    setEvents(fresh || []);
-  });
-    //setEvents([created, ...events]);
-    // In ngay biên bản của sự kiện vừa tạo:
-    //printEventReceipt(asset, created, usersMap);
-    const enriched =
-    (fresh || []).find(ev => ev._id && ev._id === created?._id)
-    // fallback nếu backend chưa trả _id ở create
-    ?? (fresh || []).find(ev =>
-        ev.type === created.type &&
-        ev.date === created.date &&
-        (ev.note || '') === (created.note || '') &&
-        ev.toUserId === created.toUserId &&
-        (ev.fromUserId || null) === (created.fromUserId || null)
-      )
-    // thêm một fallback an toàn cuối cùng
-    ?? (fresh?.[0]);
+    try {
+      const created = await createAssetEvent(asset._id, {
+        type: eventForm.type,
+        date: eventForm.date,
+        note: eventForm.note,
+        cost: eventForm.amount && eventForm.currency ? { amount: eventForm.amount, currency: eventForm.currency } : undefined,
+        fromUserId,
+        toUserId: eventForm.toUserId,
+      });
+      const fresh = await listAssetEvents(asset._id);
+      flushSync(() => {
+        setEvents(fresh || []);
+      });
+      //setEvents([created, ...events]);
+      // In ngay biên bản của sự kiện vừa tạo:
+      //printEventReceipt(asset, created, usersMap);
+      const enriched =
+        (fresh || []).find(ev => ev._id && ev._id === created?._id)
+        // fallback nếu backend chưa trả _id ở create
+        ?? (fresh || []).find(ev =>
+          ev.type === created.type &&
+          ev.date === created.date &&
+          (ev.note || '') === (created.note || '') &&
+          ev.toUserId === created.toUserId &&
+          (ev.fromUserId || null) === (created.fromUserId || null)
+        )
+        // thêm một fallback an toàn cuối cùng
+        ?? (fresh?.[0]);
 
-  // 5) In bằng bản ghi “enriched”
-  if (enriched) {
-    printEventReceipt(asset, enriched, usersMap);
+      // 5) In bằng bản ghi “enriched”
+      if (enriched) {
+        printEventReceipt(asset, enriched, usersMap);
+      }
+      // reset form
+      setEventForm({ type: eventForm.type, date: new Date().toISOString().slice(0, 10) });
+    } catch (err: any) {
+      alert(err.message ?? 'Create event failed');
+    }
   }
-    // reset form
-    setEventForm({ type: eventForm.type, date: new Date().toISOString().slice(0, 10) });
-  } catch (err: any) {
-    alert(err.message ?? 'Create event failed');
-  }
-}
 
-function printEventReceipt(asset: Asset, ev: AssetEvent, usersMap: Map<string, string>) {
-  const w = window.open('', '_blank', 'width=1024,height=768');
-  if (!w) return;
+  function printEventReceipt(asset: Asset, ev: AssetEvent, usersMap: Map<string, string>) {
+    const w = window.open('', '_blank', 'width=1024,height=768');
+    if (!w) return;
 
-  const title = `Biên bản ${labelEventType(ev.type as any).toLowerCase()}`;
-  const dateStr = fmtVN(ev.date || ev.createdAt);
-  const toName = ev.toUserId ? (usersMap.get(ev.toUserId) ?? ev.toUserId) : '';
-  const fromName = ev.fromUserId ? (usersMap.get(ev.fromUserId) ?? ev.fromUserId) : '';
-  const note = ev.note || '';
+    const title = `Biên bản ${labelEventType(ev.type as any).toLowerCase()}`;
+    const dateStr = fmtVN(ev.date || ev.createdAt);
+    const toName = ev.toUserId ? (usersMap.get(ev.toUserId) ?? ev.toUserId) : '';
+    const fromName = ev.fromUserId ? (usersMap.get(ev.fromUserId) ?? ev.fromUserId) : '';
+    const note = ev.note || '';
 
-  const html = `
+    const html = `
 <!doctype html>
 <html>
 <head>
@@ -624,20 +625,333 @@ function printEventReceipt(asset: Asset, ev: AssetEvent, usersMap: Map<string, s
 </html>
   `.trim();
 
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  w.onload = () => w.print();
-}
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => w.print();
+  }
+  const handIsCreate = () => {
+    setIsCreate(!isCreate);
+  }
 
   // Render gates
-  const showForm = Boolean(editingInline || (!assetId && !asset._id)); // create or inline edit on index
+  const showForm = Boolean(editingInline || isCreate); // create or inline edit on index
   const isEditing = Boolean(asset._id);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 md:p-6">
       <h1 className="text-2xl font-bold">Tài sản</h1>
+      <button onClick={handIsCreate} className="text-blue-600 hover:text-blue-800">{isCreate ? 'Ẩn form tạo mới' : 'Tạo mới'}</button>
       {error && <div className="rounded-md bg-red-50 text-red-700 p-3">{error}</div>}
+
+      {/* Create/Edit form (index inline or creating) */}
+      {showForm && (
+        <Section title={isEditing ? `Chỉnh sửa tài sản: ${asset.name}` : 'Tạo mới tài sản'}>
+          <form onSubmit={handleSaveAsset} className="space-y-4">
+            <div>
+              <label htmlFor="code" className="block text-sm font-medium text-gray-700">Mã tài sản</label>
+              <input id="code" type="text" value={asset.code} onChange={e => setAsset({ ...asset, code: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+            </div>
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Tên tài sản</label>
+              <input id="name" type="text" value={asset.name} onChange={e => setAsset({ ...asset, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+            </div>
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700">Loại</label>
+              <select id="type" value={asset.type} onChange={e => setAsset({ ...asset, type: e.target.value as AssetType })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                {Object.values(AssetType).map(type => (<option key={type} value={type}>{labelAssetType(type as any)}</option>))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">Trạng thái</label>
+              <select
+                id="status"
+                value={asset.status}
+                onChange={e => setAsset({ ...asset, status: e.target.value as AssetStatus })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              >
+                {Object.values(AssetStatus).map(status => (
+                  <option key={status} value={status}>
+                    {labelAssetStatus(status)}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+            <div>
+              <label htmlFor="holder" className="block text-sm font-medium text-gray-700">Người giữ hiện tại</label>
+              <select id="holder" value={asset.currentHolderId || ''} onChange={e => setAsset({ ...asset, currentHolderId: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                <option value="">-- Chọn người dùng --</option>
+                {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700">Vị trí</label>
+              <input id="location" type="text" value={asset.location || ''} onChange={e => setAsset({ ...asset, location: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+            <div>
+              <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700">Ngày mua</label>
+              <input id="purchaseDate" type="date" value={asset.purchaseDate || ''} onChange={e => setAsset({ ...asset, purchaseDate: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+            <div>
+              <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700">
+                Giá mua
+              </label>
+              <input
+                id="purchasePrice"
+                type="number"
+                value={asset.purchasePrice?.amount ?? ''}
+                onChange={e =>
+                  setAsset({
+                    ...asset,
+                    purchasePrice: {
+                      amount: Number(e.target.value),
+                      currency: asset.purchasePrice?.currency || 'VND', // giữ nguyên hoặc gán mặc định
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="supplier" className="block text-sm font-medium text-gray-700">Nhà cung cấp</label>
+              <input id="supplier" type="text" value={asset.supplier || ''} onChange={e => setAsset({ ...asset, supplier: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+            <div>
+              <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700">Serial Number</label>
+              <input id="serialNumber" type="text" value={asset.serialNumber || ''} onChange={e => setAsset({ ...asset, serialNumber: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">Mô tả</label>
+              <textarea id="description" value={asset.description || ''} onChange={e => setAsset({ ...asset, description: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+
+            <h4 className="font-semibold text-gray-700 pt-4">Thông tin thêm </h4>
+            <div className="space-y-2">
+              {metaRows.map((row, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input type="text" placeholder="Loại .. ví dụ RAM" value={row.key} onChange={e => updateMetaRow(idx, { key: e.target.value })} className="w-1/3 rounded-md border-gray-300 shadow-sm" />
+                  <input type="text" placeholder="Giá trị ... ví dụ 2G" value={row.value} onChange={e => updateMetaRow(idx, { value: e.target.value })} className="w-2/3 rounded-md border-gray-300 shadow-sm" />
+                  <button type="button" onClick={() => removeMetaRow(idx)} className="text-red-600 hover:text-red-800">Xóa</button>
+                </div>
+              ))}
+              <button type="button" onClick={addMetaRow} className="text-blue-600 hover:text-blue-800">+ Thêm</button>
+            </div>
+
+            <div className="flex gap-4">
+              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Tạo mới'}</button>
+              {isEditing && (
+                <button type="button" onClick={handleDeleteAsset} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" disabled={deleting}>{deleting ? 'Đang xóa...' : 'Xóa'}</button>
+              )}
+              {editingInline && (
+                <button type="button" onClick={() => { setAsset(emptyAsset); setEditingInline(false); setMetaRows([{ key: '', value: '' }]); }} className="px-4 py-2 border rounded-md">Hủy</button>
+              )}
+            </div>
+          </form>
+        </Section>
+      )}
+
+      {/* DETAIL VIEW (read-only) */}
+      {assetId && asset._id && !editingInline && (
+        <Section title={`Thông tin tài sản : ${asset.name}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Mã</div><div className="font-medium">{asset.code}</div></div>
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Loại</div><div className="font-medium">{labelAssetType(asset.type as any)}</div></div>
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Trạng thái</div><div className="font-medium">{labelAssetStatus(asset.status as any)}</div></div>
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Người giữ</div><div className="font-medium">{asset.currentHolderId ? usersMap.get(asset.currentHolderId) ?? asset.currentHolderId : '-'}</div></div>
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Vị trí</div><div className="font-medium">{asset.location || '-'}</div></div>
+            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Ngày mua</div><div className="font-medium">{asset.purchaseDate || '-'}</div></div>
+            <div className="bg-gray-50 p-3 rounded border md:col-span-2"><div className="text-gray-500">Mô tả</div><div className="font-medium whitespace-pre-wrap">{asset.description || '-'}</div></div>
+          </div>
+          <div className="mt-6">
+            <div className="font-semibold mb-2">Thông số (Metadata)</div>
+            {asset.metadata && Object.keys(asset.metadata).length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {Object.entries(asset.metadata as AssetMetadata).map(([k, v]) => (
+                  <div key={k} className="flex justify-between bg-white p-2 rounded border"><span className="text-gray-600">{k}</span><span className="font-medium">{String(v)}</span></div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-500">Không có thông tin thêm.</div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {/* CHILDREN: INLINE EDIT (editable) */}
+      {showChildrenEdit && (
+        <>
+          <Section title="Lịch sử sự kiện ">
+            <form onSubmit={handleCreateEvent} className="mb-4 space-y-2 border-b pb-4">
+              <h4 className="font-semibold">Thêm sự kiện mới</h4>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select className="px-2 py-1 border rounded-md" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value as AssetEventType })}>
+                  {Object.values(AssetEventType).map(type => (<option key={type} value={type}>{labelEventType(type as any)}</option>))}
+                </select>
+                <input type="date" className="px-2 py-1 border rounded-md" value={eventForm.date} onChange={e => setEventForm({ ...eventForm, date: e.target.value })} required />
+                <input type="text" placeholder="Ghi chú" className="px-2 py-1 border rounded-md flex-grow" value={eventForm.note || ''} onChange={e => setEventForm({ ...eventForm, note: e.target.value })} />
+                {(eventForm.type === AssetEventType.ASSIGN || eventForm.type === AssetEventType.TRANSFER) && (
+                  <select className="px-2 py-1 border rounded-md" value={eventForm.toUserId || ''} onChange={e => setEventForm({ ...eventForm, toUserId: e.target.value })}>
+                    <option value="">-- Giao cho --</option>
+                    {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
+                  </select>
+                )}
+                <button type="submit" className="px-3 py-1 bg-blue-500 text-white rounded-md">Thêm</button>
+                <button
+                  type="button"
+                  onClick={handleCreateEventAndPrint}
+                  className="px-3 py-1 border rounded-md"
+                  title="Tạo sự kiện và in biên bản"
+                >
+                  Thêm & In biên bản
+                </button>
+              </div>
+            </form>
+            <div className="space-y-2">
+              {events.map((ev, idx) => (
+                <div key={ev._id ?? `tmp-${ev.type}-${ev.date}-${idx}`} className="p-3 border rounded-md flex justify-between items-start bg-gray-50">
+                  <div>
+                    <div className="font-medium">
+                      {labelEventType(ev.type as any)} - {ev.toUserId ? (<><span className="text-gray-500">Người nhận:</span> {usersMap.get(ev.toUserId) || ev.toUserId}</>) : ''} - {ev.fromUserId ? (<><span className="text-gray-500">Người giao:</span> {usersMap.get(ev.fromUserId) || ev.toUserId}</>) : ''}
+                    </div>
+                    <div className="text-sm text-gray-600">{eventDateOf(ev)}</div>
+                    {ev.note && <div className="text-sm">{ev.note}</div>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="text-gray-700 hover:underline"
+                      onClick={() => printEventReceipt(asset, ev, usersMap)}
+                      title="In biên bản sự kiện này"
+                    >
+                      In biên bản
+                    </button>
+                    <button
+                      className="text-red-600 hover:underline"
+                      onClick={() => handleDeleteEvent(ev._id!)}
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+
+              ))}
+              {!events.length && <div className="text-sm text-gray-500 py-3">Chưa có sự kiện.</div>}
+            </div>
+          </Section>
+
+          <Section title="Hồ sơ tài liệu ">
+            <form onSubmit={handleCreateDocument} className="mb-4 space-y-2 border-b pb-4">
+              <h4 className="font-semibold">Thêm hồ sơ mới</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="docType" className="block text-sm font-medium text-gray-700">Loại hồ sơ</label>
+                  <select id="docType" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.type} onChange={e => setDocForm({ ...docForm, type: e.target.value as AssetDocType })}>
+                    {Object.values(AssetDocType).map(type => (<option key={type} value={type}>{labelDocType(type as any)}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="docDate" className="block text-sm font-medium text-gray-700">Ngày</label>
+                  <input id="docDate" type="date" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.date} onChange={e => setDocForm({ ...docForm, date: e.target.value })} required />
+                </div>
+                <select className="px-2 py-1 border rounded-md" value={docForm.ownerUserId || ''} onChange={e => setDocForm({ ...docForm, ownerUserId: e.target.value })}>
+                  <option value="">-- Chủ sở hữu --</option>
+                  {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
+                </select>
+                <div className="sm:col-span-2">
+                  <label htmlFor="docDescription" className="block text-sm font-medium text-gray-700">Mô tả</label>
+                  <textarea id="docDescription" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.description || ''} onChange={e => setDocForm({ ...docForm, description: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="docFiles" className="block text-sm font-medium text-gray-700">File đính kèm</label>
+                  <input id="docFiles" type="file" multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={e => setPendingFiles(Array.from(e.target.files || []))} />
+                  {pendingFiles.length > 0 && (
+                    <div className="mt-2 text-sm text-gray-500">{pendingFiles.length} file đã chọn: {pendingFiles.map(f => f.name).join(', ')}</div>
+                  )}
+                </div>
+              </div>
+              <button type="submit" className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={uploading}>{uploading ? 'Đang tải lên...' : 'Thêm hồ sơ'}</button>
+            </form>
+            <div className="space-y-4">
+              {documents.map(d => (
+                <div key={d._id} className="p-4 border rounded-md flex justify-between items-start bg-gray-50">
+                  <div>
+                    <div className="font-medium">{labelDocType(d.type as any)} - {d.ownerUserId ? usersMap.get(d.ownerUserId) : ''}</div>
+                    <div className="text-sm text-gray-600">{d.date} {d.code ? `• ${d.code}` : ''}</div>
+                    {d.description && <div className="text-sm">{d.description}</div>}
+                    {!!(d.files && d.files.length) && (
+                      <ul className="text-sm list-disc pl-5">
+                        {d.files.map(f => (
+                          <li key={f._id}>
+                            {buildFileUrl(f) ? (
+                              <a className="text-blue-600 hover:underline" href={buildFileUrl(f)} target="_blank" rel="noreferrer">{f.originalName} ({Math.round(f.size / 1024)} KB)</a>
+                            ) : (
+                              <span>{f.originalName} ({Math.round(f.size / 1024)} KB)</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <button className="text-red-600 hover:underline" onClick={() => handleDeleteDocument(d._id!)}>Xóa</button>
+                </div>
+              ))}
+              {!documents.length && <div className="text-sm text-gray-500 py-3">Chưa có hồ sơ.</div>}
+            </div>
+          </Section>
+        </>
+      )}
+
+      {/* CHILDREN: DETAIL VIEW (read-only) */}
+      {showChildrenView && (
+        <>
+          <Section title="Lịch sử sự kiện">
+            <div className="space-y-2">
+              {events.map((ev, idx) => (
+                <div key={ev._id ?? `tmp-${ev.type}-${ev.date}-${idx}`} className="p-3 border rounded-md bg-white">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="font-medium">{labelEventType(ev.type as any)}</span>
+                    <span className="text-gray-500">• {eventDateOf(ev)}</span>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">
+                    {ev.toUserId && (<div><span className="text-gray-500">Người nhận:</span> {usersMap.get(ev.toUserId) || ev.toUserId}</div>)}
+                    {ev.fromUserId && (<div><span className="text-gray-500">Người giao:</span> {usersMap.get(ev.fromUserId) || ev.fromUserId}</div>)}
+                    {ev.note && (<div><span className="text-gray-500">Ghi chú:</span> {ev.note}</div>)}
+                    {ev.cost && (<div><span className="text-gray-500">Chi phí :</span> {ev.cost.amount} {ev.cost.currency}</div>)}
+                  </div>
+                </div>
+              ))}
+              {!events.length && <div className="text-sm text-gray-500 py-3">Chưa có sự kiện.</div>}
+            </div>
+          </Section>
+
+          <Section title="Hồ sơ tài liệu ">
+            <div className="space-y-4">
+              {documents.map(d => (
+                <div key={d._id} className="p-4 border rounded-md bg-white">
+                  <div className="font-medium">{labelDocType(d.type as any)} - {d.ownerUserId ? usersMap.get(d.ownerUserId) : ''}</div>
+                  <div className="text-sm text-gray-600">{d.date} {d.code ? `• ${d.code}` : ''}</div>
+                  {d.description && <div className="text-sm mt-1">{d.description}</div>}
+                  {!!(d.files && d.files.length) && (
+                    <ul className="text-sm list-disc pl-5 mt-2">
+                      {d.files.map(f => (
+                        <li key={f._id}>
+                          {buildFileUrl(f) ? (
+                            <a className="text-blue-600 hover:underline" href={buildFileUrl(f)} target="_blank" rel="noreferrer">{f.originalName} ({Math.round(f.size / 1024)} KB)</a>
+                          ) : (
+                            <span>{f.originalName} ({Math.round(f.size / 1024)} KB)</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+              {!documents.length && <div className="text-sm text-gray-500 py-3">Không có Hồ sơ.</div>}
+            </div>
+          </Section>
+        </>
+      )}
 
       {/* Index list */}
       {!assetId && (
@@ -814,314 +1128,7 @@ function printEventReceipt(asset: Asset, ev: AssetEvent, usersMap: Map<string, s
         </Section>
       )}
 
-      {/* Create/Edit form (index inline or creating) */}
-      {showForm && (
-        <Section title={isEditing ? `Chỉnh sửa tài sản: ${asset.name}` : 'Tạo mới tài sản'}>
-          <form onSubmit={handleSaveAsset} className="space-y-4">
-            <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700">Mã tài sản</label>
-              <input id="code" type="text" value={asset.code} onChange={e => setAsset({ ...asset, code: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-            </div>
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Tên tài sản</label>
-              <input id="name" type="text" value={asset.name} onChange={e => setAsset({ ...asset, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-            </div>
-            <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700">Loại</label>
-              <select id="type" value={asset.type} onChange={e => setAsset({ ...asset, type: e.target.value as AssetType })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                {Object.values(AssetType).map(type => (<option key={type} value={type}>{labelAssetType(type as any)}</option>))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700">Trạng thái</label>
-              <select
-                id="status"
-                value={asset.status}
-                onChange={e => setAsset({ ...asset, status: e.target.value as AssetStatus })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-              >
-                {Object.values(AssetStatus).map(status => (
-                  <option key={status} value={status}>
-                    {labelAssetStatus(status)}
-                  </option>
-                ))}
-              </select>
 
-            </div>
-            <div>
-              <label htmlFor="holder" className="block text-sm font-medium text-gray-700">Người giữ hiện tại</label>
-              <select id="holder" value={asset.currentHolderId || ''} onChange={e => setAsset({ ...asset, currentHolderId: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                <option value="">-- Chọn người dùng --</option>
-                {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700">Vị trí</label>
-              <input id="location" type="text" value={asset.location || ''} onChange={e => setAsset({ ...asset, location: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-            </div>
-            <div>
-              <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700">Ngày mua</label>
-              <input id="purchaseDate" type="date" value={asset.purchaseDate || ''} onChange={e => setAsset({ ...asset, purchaseDate: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-            </div>
-             <div>
-  <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700">
-    Giá mua
-  </label>
-  <input
-    id="purchasePrice"
-    type="number"
-    value={asset.purchasePrice?.amount ?? ''}
-    onChange={e =>
-      setAsset({
-        ...asset,
-        purchasePrice: {
-          amount: Number(e.target.value),
-          currency: asset.purchasePrice?.currency || 'VND', // giữ nguyên hoặc gán mặc định
-        },
-      })
-    }
-    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-  />
-</div>
-
-            <div>
-              <label htmlFor="supplier" className="block text-sm font-medium text-gray-700">Nhà cung cấp</label>
-              <input id="supplier" type="text" value={asset.supplier || ''} onChange={e => setAsset({ ...asset, supplier: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-            </div>
-            <div>
-              <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700">Serial Number</label>
-              <input id="serialNumber" type="text" value={asset.serialNumber || ''} onChange={e => setAsset({ ...asset, serialNumber: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-            </div>
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">Mô tả</label>
-              <textarea id="description" value={asset.description || ''} onChange={e => setAsset({ ...asset, description: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-            </div>
-
-            <h4 className="font-semibold text-gray-700 pt-4">Thông tin thêm </h4>
-            <div className="space-y-2">
-              {metaRows.map((row, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input type="text" placeholder="Loại .. ví dụ RAM" value={row.key} onChange={e => updateMetaRow(idx, { key: e.target.value })} className="w-1/3 rounded-md border-gray-300 shadow-sm" />
-                  <input type="text" placeholder="Giá trị ... ví dụ 2G" value={row.value} onChange={e => updateMetaRow(idx, { value: e.target.value })} className="w-2/3 rounded-md border-gray-300 shadow-sm" />
-                  <button type="button" onClick={() => removeMetaRow(idx)} className="text-red-600 hover:text-red-800">Xóa</button>
-                </div>
-              ))}
-              <button type="button" onClick={addMetaRow} className="text-blue-600 hover:text-blue-800">+ Thêm</button>
-            </div>
-
-            <div className="flex gap-4">
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Tạo mới'}</button>
-              {isEditing && (
-                <button type="button" onClick={handleDeleteAsset} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" disabled={deleting}>{deleting ? 'Đang xóa...' : 'Xóa'}</button>
-              )}
-              {editingInline && (
-                <button type="button" onClick={() => { setAsset(emptyAsset); setEditingInline(false); setMetaRows([{ key: '', value: '' }]); }} className="px-4 py-2 border rounded-md">Hủy</button>
-              )}
-            </div>
-          </form>
-        </Section>
-      )}
-
-      {/* DETAIL VIEW (read-only) */}
-      {assetId && asset._id && !editingInline && (
-        <Section title={`Thông tin tài sản : ${asset.name}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Mã</div><div className="font-medium">{asset.code}</div></div>
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Loại</div><div className="font-medium">{labelAssetType(asset.type as any)}</div></div>
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Trạng thái</div><div className="font-medium">{labelAssetStatus(asset.status as any)}</div></div>
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Người giữ</div><div className="font-medium">{asset.currentHolderId ? usersMap.get(asset.currentHolderId) ?? asset.currentHolderId : '-'}</div></div>
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Vị trí</div><div className="font-medium">{asset.location || '-'}</div></div>
-            <div className="bg-gray-50 p-3 rounded border"><div className="text-gray-500">Ngày mua</div><div className="font-medium">{asset.purchaseDate || '-'}</div></div>
-            <div className="bg-gray-50 p-3 rounded border md:col-span-2"><div className="text-gray-500">Mô tả</div><div className="font-medium whitespace-pre-wrap">{asset.description || '-'}</div></div>
-          </div>
-          <div className="mt-6">
-            <div className="font-semibold mb-2">Thông số (Metadata)</div>
-            {asset.metadata && Object.keys(asset.metadata).length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                {Object.entries(asset.metadata as AssetMetadata).map(([k, v]) => (
-                  <div key={k} className="flex justify-between bg-white p-2 rounded border"><span className="text-gray-600">{k}</span><span className="font-medium">{String(v)}</span></div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-500">Không có thông tin thêm.</div>
-            )}
-          </div>
-        </Section>
-      )}
-
-      {/* CHILDREN: INLINE EDIT (editable) */}
-      {showChildrenEdit && (
-        <>
-          <Section title="Lịch sử sự kiện ">
-            <form onSubmit={handleCreateEvent} className="mb-4 space-y-2 border-b pb-4">
-              <h4 className="font-semibold">Thêm sự kiện mới</h4>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <select className="px-2 py-1 border rounded-md" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value as AssetEventType })}>
-                  {Object.values(AssetEventType).map(type => (<option key={type} value={type}>{labelEventType(type as any)}</option>))}
-                </select>
-                <input type="date" className="px-2 py-1 border rounded-md" value={eventForm.date} onChange={e => setEventForm({ ...eventForm, date: e.target.value })} required />
-                <input type="text" placeholder="Ghi chú" className="px-2 py-1 border rounded-md flex-grow" value={eventForm.note || ''} onChange={e => setEventForm({ ...eventForm, note: e.target.value })} />
-                {(eventForm.type === AssetEventType.ASSIGN || eventForm.type === AssetEventType.TRANSFER) && (
-                  <select className="px-2 py-1 border rounded-md" value={eventForm.toUserId || ''} onChange={e => setEventForm({ ...eventForm, toUserId: e.target.value })}>
-                    <option value="">-- Giao cho --</option>
-                    {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
-                  </select>
-                )}
-                <button type="submit" className="px-3 py-1 bg-blue-500 text-white rounded-md">Thêm</button>
-                <button
-    type="button"
-    onClick={handleCreateEventAndPrint}
-    className="px-3 py-1 border rounded-md"
-    title="Tạo sự kiện và in biên bản"
-  >
-    Thêm & In biên bản
-  </button>
-              </div>
-            </form>
-            <div className="space-y-2">
-              {events.map((ev, idx) => (
-                <div key={ev._id ?? `tmp-${ev.type}-${ev.date}-${idx}`} className="p-3 border rounded-md flex justify-between items-start bg-gray-50">
-                  <div>
-                    <div className="font-medium">
-                      {labelEventType(ev.type as any)} - {ev.toUserId ? (<><span className="text-gray-500">Người nhận:</span> {usersMap.get(ev.toUserId) || ev.toUserId}</>) : ''} - {ev.fromUserId ? (<><span className="text-gray-500">Người giao:</span> {usersMap.get(ev.fromUserId) || ev.toUserId}</>) : ''}
-                    </div>
-                    <div className="text-sm text-gray-600">{eventDateOf(ev)}</div>
-                    {ev.note && <div className="text-sm">{ev.note}</div>}
-                  </div>
-                  <div className="flex items-center gap-3">
-    <button
-      className="text-gray-700 hover:underline"
-      onClick={() => printEventReceipt(asset, ev, usersMap)}
-      title="In biên bản sự kiện này"
-    >
-      In biên bản
-    </button>
-    <button
-      className="text-red-600 hover:underline"
-      onClick={() => handleDeleteEvent(ev._id!)}
-    >
-      Xóa
-    </button>
-  </div>
-                </div>
-                
-              ))}
-              {!events.length && <div className="text-sm text-gray-500 py-3">Chưa có sự kiện.</div>}
-            </div>
-          </Section>
-
-          <Section title="Hồ sơ tài liệu ">
-            <form onSubmit={handleCreateDocument} className="mb-4 space-y-2 border-b pb-4">
-              <h4 className="font-semibold">Thêm hồ sơ mới</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="docType" className="block text-sm font-medium text-gray-700">Loại hồ sơ</label>
-                  <select id="docType" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.type} onChange={e => setDocForm({ ...docForm, type: e.target.value as AssetDocType })}>
-                    {Object.values(AssetDocType).map(type => (<option key={type} value={type}>{labelDocType(type as any)}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="docDate" className="block text-sm font-medium text-gray-700">Ngày</label>
-                  <input id="docDate" type="date" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.date} onChange={e => setDocForm({ ...docForm, date: e.target.value })} required />
-                </div>
-                <select className="px-2 py-1 border rounded-md" value={docForm.ownerUserId || ''} onChange={e => setDocForm({ ...docForm, ownerUserId: e.target.value })}>
-                  <option value="">-- Chủ sở hữu --</option>
-                  {users.map(u => (<option key={u._id} value={u._id}>{u.fullName || u._id}</option>))}
-                </select>
-                <div className="sm:col-span-2">
-                  <label htmlFor="docDescription" className="block text-sm font-medium text-gray-700">Mô tả</label>
-                  <textarea id="docDescription" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value={docForm.description || ''} onChange={e => setDocForm({ ...docForm, description: e.target.value })} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="docFiles" className="block text-sm font-medium text-gray-700">File đính kèm</label>
-                  <input id="docFiles" type="file" multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={e => setPendingFiles(Array.from(e.target.files || []))} />
-                  {pendingFiles.length > 0 && (
-                    <div className="mt-2 text-sm text-gray-500">{pendingFiles.length} file đã chọn: {pendingFiles.map(f => f.name).join(', ')}</div>
-                  )}
-                </div>
-              </div>
-              <button type="submit" className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={uploading}>{uploading ? 'Đang tải lên...' : 'Thêm hồ sơ'}</button>
-            </form>
-            <div className="space-y-4">
-              {documents.map(d => (
-                <div key={d._id} className="p-4 border rounded-md flex justify-between items-start bg-gray-50">
-                  <div>
-                    <div className="font-medium">{labelDocType(d.type as any)} - {d.ownerUserId ? usersMap.get(d.ownerUserId) : ''}</div>
-                    <div className="text-sm text-gray-600">{d.date} {d.code ? `• ${d.code}` : ''}</div>
-                    {d.description && <div className="text-sm">{d.description}</div>}
-                    {!!(d.files && d.files.length) && (
-                      <ul className="text-sm list-disc pl-5">
-                        {d.files.map(f => (
-                          <li key={f._id}>
-                            {buildFileUrl(f) ? (
-                              <a className="text-blue-600 hover:underline" href={buildFileUrl(f)} target="_blank" rel="noreferrer">{f.originalName} ({Math.round(f.size / 1024)} KB)</a>
-                            ) : (
-                              <span>{f.originalName} ({Math.round(f.size / 1024)} KB)</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <button className="text-red-600 hover:underline" onClick={() => handleDeleteDocument(d._id!)}>Xóa</button>
-                </div>
-              ))}
-              {!documents.length && <div className="text-sm text-gray-500 py-3">Chưa có hồ sơ.</div>}
-            </div>
-          </Section>
-        </>
-      )}
-
-      {/* CHILDREN: DETAIL VIEW (read-only) */}
-      {showChildrenView && (
-        <>
-          <Section title="Lịch sử sự kiện">
-            <div className="space-y-2">
-              {events.map((ev, idx) => (
-                <div key={ev._id ?? `tmp-${ev.type}-${ev.date}-${idx}`} className="p-3 border rounded-md bg-white">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <span className="font-medium">{labelEventType(ev.type as any)}</span>
-                    <span className="text-gray-500">• {eventDateOf(ev)}</span>
-                  </div>
-                  <div className="text-sm text-gray-700 mt-1">
-                    {ev.toUserId && (<div><span className="text-gray-500">Người nhận:</span> {usersMap.get(ev.toUserId) || ev.toUserId}</div>)}
-                    {ev.fromUserId && (<div><span className="text-gray-500">Người giao:</span> {usersMap.get(ev.fromUserId) || ev.fromUserId}</div>)}
-                    {ev.note && (<div><span className="text-gray-500">Ghi chú:</span> {ev.note}</div>)}
-                    {ev.cost && (<div><span className="text-gray-500">Chi phí :</span> {ev.cost.amount} {ev.cost.currency}</div>)}
-                  </div>
-                </div>
-              ))}
-              {!events.length && <div className="text-sm text-gray-500 py-3">Chưa có sự kiện.</div>}
-            </div>
-          </Section>
-
-          <Section title="Hồ sơ tài liệu ">
-            <div className="space-y-4">
-              {documents.map(d => (
-                <div key={d._id} className="p-4 border rounded-md bg-white">
-                  <div className="font-medium">{labelDocType(d.type as any)} - {d.ownerUserId ? usersMap.get(d.ownerUserId) : ''}</div>
-                  <div className="text-sm text-gray-600">{d.date} {d.code ? `• ${d.code}` : ''}</div>
-                  {d.description && <div className="text-sm mt-1">{d.description}</div>}
-                  {!!(d.files && d.files.length) && (
-                    <ul className="text-sm list-disc pl-5 mt-2">
-                      {d.files.map(f => (
-                        <li key={f._id}>
-                          {buildFileUrl(f) ? (
-                            <a className="text-blue-600 hover:underline" href={buildFileUrl(f)} target="_blank" rel="noreferrer">{f.originalName} ({Math.round(f.size / 1024)} KB)</a>
-                          ) : (
-                            <span>{f.originalName} ({Math.round(f.size / 1024)} KB)</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-              {!documents.length && <div className="text-sm text-gray-500 py-3">Không có Hồ sơ.</div>}
-            </div>
-          </Section>
-        </>
-      )}
     </div>
   );
 }

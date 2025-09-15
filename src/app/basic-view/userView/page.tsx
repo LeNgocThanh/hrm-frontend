@@ -365,7 +365,7 @@ const UsersView: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Báo cáo nhân sự</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Báo cáo nhân sự </h1>
           <p className="mt-2 text-gray-600">thông tin nhân sự theo tổ chức và chức vụ</p>
            <button
               onClick={handShowFilter}
@@ -379,8 +379,7 @@ const UsersView: React.FC = () => {
         {showFilter && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Bộ lọc</h2>
-           
+            <h2 className="text-lg font-semibold text-gray-900">Bộ lọc</h2>           
             <button
               onClick={clearFilters}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"

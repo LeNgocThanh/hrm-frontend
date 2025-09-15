@@ -10,6 +10,9 @@ import type { UploadFileRef } from '@/types/upload';
 import FileUploader from '../admin/FileUploader';
 import { useRouter } from 'next/navigation';
 import { VI_STATUS, VI_VISIBILITY, STATUS_OPTIONS_VI, VIS_OPTIONS_VI, VI_MISC } from '@/i18n/notice.vi';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+
 
 function toIsoOrUndefined(v?: string) {
   if (!v) return undefined;
@@ -21,8 +24,8 @@ function chipify(str?: string) {
 }
 
 export default function NoticeAdminForm({
-  noticeId,           // nếu có => chế độ sửa (PATCH)
-  initialData,        // dữ liệu ban đầu (tuỳ chọn)
+  noticeId,          
+  initialData,       
   onSuccess,          // callback khi lưu thành công (dùng cho Modal)
   onCancel,           // callback khi bấm Huỷ (dùng cho Modal)
 }: {
@@ -119,6 +122,26 @@ export default function NoticeAdminForm({
   const set = (k: keyof CreateNoticeInput, v: any) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  
+  const modules = {
+    toolbar: [
+      [{ 'header': '1'}, {'header': '2'}, { 'font': [] }],
+      [{size: []}],
+      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+      [{'list': 'ordered'}, {'list': 'bullet'}, 
+       {'indent': '-1'}, {'indent': '+1'}],
+      ['link', 'image', 'video'],
+      ['clean']
+    ],
+  };
+
+  const formats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike', 'blockquote',
+    'list', 'bullet', 'indent',
+    'link', 'image', 'video'
+  ];
+
   return (
     <form
       className="mx-auto max-w-3xl space-y-4 rounded-2xl border bg-white p-4 shadow"
@@ -177,11 +200,14 @@ export default function NoticeAdminForm({
 
       <div className="space-y-1">
         <label className="text-sm font-medium">Nội dung</label>
-        <textarea
+           <ReactQuill
+          theme="snow"
           value={(form as any).content || ''}
-          onChange={(e) => set('content', e.target.value)}
+          onChange={(v) => set('content', v)}
+          modules={modules}
+          formats={formats}
           placeholder="nội dung"
-          className="min-h-40 w-full rounded-xl border px-3 py-2 font-mono"
+          className="min-h-40"
         />
       </div>
 

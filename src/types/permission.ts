@@ -3,6 +3,7 @@ export enum Module {
   Asset = 'Asset',
   All = 'All',
   Meeting = 'Meeting',
+  Notice = 'Notice',
 }
 
 export interface Permission {
