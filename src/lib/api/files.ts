@@ -1,7 +1,7 @@
 // src/lib/api/files.ts
 import type { UploadFileRef, UploadFileInfo, UploadResponse } from '@/types/upload'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');  // Cấu hình base URL của API''
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn').replace(/\/+$/, '');  // Cấu hình base URL của API''
 
 // Endpoints theo backend của bạn:
 const UPLOAD_URL = `${API_BASE}/files/upload`              // POST form-data: file, uploadedBy, resourceType

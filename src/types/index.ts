@@ -115,3 +115,9 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 } 
+
+export interface PermissionData {
+  organizationId: string;
+  permissions: string[];
+  groupedPermissions: Record<string, string[]>;
+}

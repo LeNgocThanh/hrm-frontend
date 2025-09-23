@@ -1,8 +1,8 @@
 import Image from 'next/image'
 import { bestGuessFileName, getFileUrl, isImageLike } from '@/lib/api/files'
-import type { UploadFileRef } from '@/types/upload'
+import type { UploadFileRef, UploadFileInfo } from '@/types/upload'
 
-export default function AttachmentList({ files = [] }: { files: UploadFileRef[] }) {
+export default function AttachmentList({ files = [] }: { files: UploadFileInfo[] }) {
   if (!files.length) return null
 
   const images = files.filter(isImageLike)

@@ -41,7 +41,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // URL cơ sở của API NestJS của bạn
-const NESTJS_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const NESTJS_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 // AuthProvider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -52,16 +52,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Hàm kiểm tra và khôi phục trạng thái từ sessionStorage khi tải lại trang
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      //  const storedAccessToken = sessionStorage.getItem('accessToken');
-      //  const storedUserInfo = sessionStorage.getItem('userInfo');
-
+      
       const storedAccessToken = localStorage.getItem('accessToken');
       const storedUserInfo = localStorage.getItem('userInfo');
+      console.log('accessToken', storedAccessToken);
+      
       const validateToken = async (token: string) => {
         try {
           const res = await fetch(`${NESTJS_API_BASE_URL}/auth/profile`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` }, credentials: 'include',
           });
+          console.log('token',token);
 
           if (res.ok) {
             return true;
@@ -77,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (refreshRes.ok) {
               const data = await refreshRes.json();
               localStorage.setItem('accessToken', data.access_token);
+              console.log('accessToken', data.access_token);
               return true;
             } else {
               throw new Error('Refresh token failed');
@@ -235,7 +237,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Luôn cố gắng parse JSON để lấy thông báo lỗi từ backend
       const data = await response.json();
-      console.log('data', data);
       if (!response.ok) {
         // Đây là lỗi từ server (ví dụ: 401)
         console.warn('Lỗi làm mới token từ API:', data.message || 'Không thể làm mới token.');
@@ -244,6 +245,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setAccessToken(data.access_token);
       localStorage.setItem('accessToken', data.access_token);
+      const processedScopedPermissions = data.scopedPermissions?.map((perm: any) => {
+        let organizationId = perm.organizationId;
+
+        // Nếu organizationId là string chứa object, parse nó
+        if (typeof organizationId === 'string' && organizationId.includes('ObjectId')) {
+          // Extract ID từ string "{ _id: new ObjectId('6890249361bf1ceaba99e103'), name: 'phòng IT' }"
+          const match = organizationId.match(/'([^']+)'/);
+          organizationId = match ? match[1] : organizationId;
+        }
+
+        return {
+          organizationId,
+          permissions: perm.permissions,
+          groupedPermissions: perm.groupedPermissions,
+        };
+      }) || [];
+
+      const userWithPermissions = {
+        ...data.user,
+        scopedPermissions: processedScopedPermissions
+      };
+      //refesh luôn quyền để cập nhật mới nhất  
+      localStorage.setItem('userInfo', JSON.stringify(userWithPermissions));
+
       console.log('Access Token đã được làm mới:', data.access_token);
     } catch (error: any) {
       // Xử lý các lỗi không mong muốn (ví dụ: lỗi mạng, lỗi JSON parsing)

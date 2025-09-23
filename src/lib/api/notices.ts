@@ -28,7 +28,7 @@ export type { Notice } from '@/types/notice'
 //   slug?: string
 // }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'; // ví dụ: "https://intranet.example.com/api"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn'; // ví dụ: "https://intranet.example.com/api"
 
 export interface ListNoticesParams {
   q?: string;

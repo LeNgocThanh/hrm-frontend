@@ -1,6 +1,6 @@
 import { UserProfile, CreateUserProfileDto, UpdateUserProfileDto } from '@/types/userProfile';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 const accessToken = localStorage.getItem('accessToken');
 
 class UserProfileApi {

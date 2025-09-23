@@ -1,6 +1,6 @@
 import { Permission } from '@/types/permission';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://api.amore.id.vn'; // ví dụ: "https://intranet.example.com/api"
 
 export async function getPermissions(): Promise<Permission[]> {
   const res = await fetch(`${API_URL}/permissions`, { cache: 'no-store', 

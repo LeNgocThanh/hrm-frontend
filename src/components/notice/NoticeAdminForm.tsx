@@ -70,8 +70,8 @@ export default function NoticeAdminForm({
       pinned: (initialData as any).pinned ?? prev.pinned,
       coverImage: (initialData as any).coverImage ?? prev.coverImage,
       attachments: ((initialData as any).attachments as string[] | undefined) ?? prev.attachments,
-      publishAt: initialData.publishAt as any,
-      expireAt: initialData.expireAt as any,
+      publishAt: (initialData as any).publishAt ?? prev.publishAt,
+      expireAt: (initialData as any).expireAt ?? prev.expireAt,
       allowedPermissions: ((initialData as any).allowedPermissions as string[] | undefined) ?? prev.allowedPermissions,
       tags: (initialData.tags as string[] | undefined) ?? prev.tags,
     }));

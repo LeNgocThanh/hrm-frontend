@@ -1,7 +1,7 @@
 import { CreateUserAccountDto, UpdateUserAccountDto, UserAccountResponse } from '@/types/userAccount';
 
 // URL cơ sở của API NestJS của bạn
-const NESTJS_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'; // Đảm bảo URL này chính xác
+const NESTJS_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn'; // Đảm bảo URL này chính xác
 const accessToken = localStorage.getItem('accessToken');
 
 export const userAccountApi = {
