@@ -122,7 +122,7 @@ export default function LeaveApprovalsPage() {
       if (uid) queryObj.userId = uid;
       if (ltype) queryObj.leaveType = ltype;
       if (u) queryObj.unit = u;
-      if (query?.trim()) queryObj.q = query.trim();
+      if (typeof query === 'string' && query.trim()) queryObj.q = query.trim();
 
       return fetchList<LeaveRequest>('/leave-requests', queryObj);
     },
