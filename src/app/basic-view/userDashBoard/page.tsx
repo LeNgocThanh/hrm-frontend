@@ -36,6 +36,7 @@ import { getUsers } from "@/lib/api/users";
 import { getUserAssignmentsByUser } from "@/lib/api/user-assignments";
 import { getUserDocument } from "@/lib/api/userDocument";
 import { getPositions } from "@/lib/api/positions";
+import { EDUCATION_LEVELS_VI, EDUCATION_LEVELS_OPTIONS } from "@/i18n/user.vi"
 
 // ==== Small helpers ====
 const isValid = (d?: string | Date | null) => {
@@ -367,8 +368,8 @@ const birthdaysThisMonth = useMemo(() => {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard nhân sự</h1>
-        <p className="mt-2 text-gray-600">Tổng quan workforce theo hồ sơ, tình trạng làm việc và phân bổ chức vụ.</p>
+        <h1 className="text-3xl font-bold text-gray-900">Tổng quan nhân sự</h1>
+        <p className="mt-2 text-gray-600">Tổng quan theo hồ sơ, tình trạng làm việc và phân bổ chức vụ.</p>
       </header>
 
       {/* Top KPI cards */}

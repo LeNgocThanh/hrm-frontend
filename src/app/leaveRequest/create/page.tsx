@@ -2,25 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import {LeaveType, LeaveUnit} from '@/types/leave';
+import { LT_STATUS, LT_UNIT, STATUS_OPTIONS_LT } from '@/i18n/leaveRequest.vi';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 // ====== Types tối thiểu dùng ở client ======
 type ObjectId = string;
-
-enum LeaveType {
-  PAID = 'PAID',
-  UNPAID = 'UNPAID',
-  SICK = 'SICK',
-  MATERNITY = 'MATERNITY',
-  COMPENSATORY = 'COMPENSATORY',
-  OTHER = 'OTHER',
-}
-
-enum LeaveUnit {
-  DAY = 'DAY',
-  HALF_DAY = 'HALF_DAY',
-  HOUR = 'HOUR',
-}
 
 type UserLite = { _id: ObjectId; fullName: string; email?: string };
 type UploadFileLite = { _id: ObjectId; fileName: string; url?: string; size?: number };
@@ -256,7 +243,7 @@ export default function CreateLeavePage() {
 
   <div class="card">
     <div><b>Người nghỉ:</b> ${requester}</div>
-    <div><b>Loại phép (đơn):</b> ${payload.leaveType}</div>
+    <div><b>Loại phép (đơn):</b> ${STATUS_OPTIONS_LT.find(option => option.value === payload.leaveType)?.label}</div>
     ${payload.reason ? `<div><b>Lý do:</b> ${payload.reason}</div>` : ''}
   </div>
 
@@ -377,7 +364,8 @@ export default function CreateLeavePage() {
           >
             {Object.values(LeaveType).map((t) => (
               <option key={t} value={t}>
-                {t}
+               {/* {STATUS_OPTIONS_LT.find(option => option.value === t)?.label} */}
+               {LT_STATUS[t]}
               </option>
             ))}
           </select>
@@ -419,7 +407,7 @@ export default function CreateLeavePage() {
                   >
                     {Object.values(LeaveUnit).map((u) => (
                       <option key={u} value={u}>
-                        {u}
+                        {LT_UNIT[u]}
                       </option>
                     ))}
                   </select>

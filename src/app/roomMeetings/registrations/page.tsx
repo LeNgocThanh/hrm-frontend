@@ -163,7 +163,7 @@ function SelectUser({
         </select>
       </Field>
 
-      <Field label="Organizer">
+      <Field label="Người tham gia">
         <SelectUser
           value={organizerId}
           onChange={setOrganizerId}
@@ -172,7 +172,7 @@ function SelectUser({
         />
       </Field>
 
-      <Field label="Chair">
+      <Field label="Chủ tọa">
         <SelectUser
           value={chairId}
           onChange={setChairId}
@@ -287,7 +287,7 @@ function RegistrationItem({
           <div className="mt-1 text-xs text-slate-600">Organizer: {organizerName} · Chair: {chairNames}</div>
           {conflicts.length > 0 && (
             <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-              Cảnh báo trùng với {conflicts.length} cuộc họp đã approve.
+              Cảnh báo trùng với {conflicts.length} cuộc họp đã duyệt.
             </div>
           )}
           {inPast && (

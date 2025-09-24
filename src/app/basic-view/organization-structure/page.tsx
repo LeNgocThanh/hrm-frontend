@@ -254,7 +254,7 @@ function isObjectWithId(obj: any): obj is HasId {
           </button>
         )}
         
-        <button
+        {/* <button
           style={{
             marginLeft: 8,
             padding: '2px 8px',
@@ -268,7 +268,7 @@ function isObjectWithId(obj: any): obj is HasId {
           onClick={() => setDetailNodeId(node._id)}
         >
           Chi tiết
-        </button>
+        </button> */}
       </div>
 
       {node.users && node.users.length > 0 && showUsers[node._id] && (

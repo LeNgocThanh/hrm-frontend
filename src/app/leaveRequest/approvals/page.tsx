@@ -3,27 +3,14 @@
 import { useMemo, useRef, useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { api } from '@/lib/api/room-meetings';
+import {LeaveType, LeaveUnit} from '@/types/leave'
+import { LT_STATUS, LT_UNIT, STATUS_OPTIONS_LT, LR_STATUS, LEAVE_STATUS_OPTIONS } from '@/i18n/leaveRequest.vi';
 
 // =======================
 // Types & helpers
 // =======================
 type ObjectId = string;
 type Status = 'pending' | 'approved' | 'rejected' | 'cancelled';
-
-enum LeaveType {
-  PAID = 'PAID',
-  UNPAID = 'UNPAID',
-  SICK = 'SICK',
-  MATERNITY = 'MATERNITY',
-  COMPENSATORY = 'COMPENSATORY',
-  OTHER = 'OTHER',
-}
-
-enum LeaveUnit {
-  DAY = 'DAY',
-  HALF_DAY = 'HALF_DAY',
-  HOUR = 'HOUR',
-}
 
 type UserLite = { _id: ObjectId; fullName: string; email?: string };
 
@@ -178,19 +165,19 @@ export default function LeaveApprovalsPage() {
           </Field>
           <Field label="Trạng thái">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={status} onChange={e=>setStatus(e.target.value as Status)}>
-              {(['pending','approved','rejected','cancelled'] as Status[]).map(s => <option key={s} value={s}>{s}</option>)}
+              {(['pending','approved','rejected','cancelled'] as Status[]).map(s => <option key={s} value={s}>{LR_STATUS[s]}</option>)}
             </select>
           </Field>
           <Field label="Loại phép (đơn)">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={leaveType} onChange={e=>setLeaveType(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(LeaveType).map(t => <option key={t} value={t}>{t}</option>)}
+              {Object.values(LeaveType).map(t => <option key={t} value={t}>{LT_STATUS[t]}</option>)}
             </select>
           </Field>
           <Field label="Đơn vị (segment)">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={unit} onChange={e=>setUnit(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(LeaveUnit).map(u => <option key={u} value={u}>{u}</option>)}
+              {Object.values(LeaveUnit).map(u => <option key={u} value={u}>{LT_UNIT[u]}</option>)}
             </select>
           </Field>
           <Field label="Từ ngày">
@@ -224,7 +211,7 @@ export default function LeaveApprovalsPage() {
                   <div className="min-w-0">
                     <div className="truncate font-semibold">{name}</div>
                     <div className="text-xs text-slate-600">
-                      Loại phép (đơn): <b>{String(l.leaveType)}</b> · Trạng thái: <b>{String(l.status)}</b>
+                      Loại phép (đơn): <b>{STATUS_OPTIONS_LT.find(option => option.value === String(l.leaveType))?.label}</b> · Trạng thái: <b>{LEAVE_STATUS_OPTIONS.find(option => option.value === String(l.status))?.label}</b>
                     </div>
                     {!!l.reason && <div className="mt-1 text-xs text-slate-700">Lý do: {l.reason}</div>}
                   </div>
@@ -243,9 +230,9 @@ export default function LeaveApprovalsPage() {
                       <div key={i} className="grid items-center gap-2 md:grid-cols-[minmax(220px,1fr)_auto_auto]">
                         <div className="text-sm">
                           <div>{segLabel(s)}</div>
-                          <div className="text-[11px] text-slate-500">
+                          {/* <div className="text-[11px] text-slate-500">
                             Loại (segment): {segType(s, String(l.leaveType))}
-                          </div>
+                          </div> */}
                         </div>
                         <div className="text-right text-sm tabular-nums">{Math.round(calcHours(s)*100)/100} h</div>
                         <span className="justify-self-end rounded-full bg-slate-200 px-2 py-0.5 text-[11px]">{s.unit}</span>
@@ -309,5 +296,5 @@ function StatusPill({ status }: { status: Status }) {
       : status === 'rejected'
       ? 'bg-rose-100 text-rose-900'
       : 'bg-slate-100 text-slate-900';
-  return <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${color}`}>{status}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${color}`}>{LR_STATUS[status]}</span>;
 }

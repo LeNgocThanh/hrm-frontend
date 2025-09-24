@@ -11,6 +11,12 @@ export enum LeaveType {
   OTHER = 'OTHER',
 }
 
+export enum LeaveUnit {
+  DAY = 'DAY',
+  HALF_DAY = 'HALF_DAY',
+  HOUR = 'HOUR',
+}
+
 export type LeaveStatus = 'pending'|'approved'|'rejected'|'cancelled';
 
 export interface LeaveRequest {

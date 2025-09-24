@@ -32,7 +32,7 @@ return (
 <main className="flex-1">
 {/* Optional global container; many pages already add their own.
 If your pages already handle container spacing, you can remove the wrapper below. */}
-<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+<div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 <AuthGuard>
 {children}
 </AuthGuard>

@@ -150,20 +150,10 @@ export default function NewMeetingPage() {
     setError("");
     setOkMsg("");
     try {
-      if (!payload) throw new Error("Thiếu thông tin hoặc thời gian không hợp lệ.");
-      // const rs = await api<Meeting[]>("/meetings", {
-      //   query: {
-      //     roomId: payload.roomId,
-      //     from: payload.startAt,
-      //     to: payload.endAt,
-      //     status: MeetingStatus.SCHEDULED,
-      //   },
-      // });
+      if (!payload) throw new Error("Thiếu thông tin hoặc thời gian không hợp lệ.");     
       const s = new Date(payload.startAt),
         e = new Date(payload.endAt);
-      //const hit = rs.filter((m) => overlaps(s, e, new Date(m.startAt), new Date(m.endAt)));
-    //  setConflicts(hit);
-     // if (hit.length === 0) setOkMsg("Không phát hiện trùng với lịch đã approve.");
+    
       const participantIds = (payload.participants || [])
       .map((p: any) => p?.userId)
       .filter(Boolean);
@@ -183,8 +173,7 @@ export default function NewMeetingPage() {
             body: JSON.stringify({
               participantIds,
               startAt: payload.startAt,
-              endAt: payload.endAt,
-              // excludeMeetingId: payload._id // nếu đang edit, truyền thêm
+              endAt: payload.endAt,          
             }),
           })
         : Promise.resolve({
@@ -205,9 +194,9 @@ export default function NewMeetingPage() {
 if (hit.length === 0 && !peopleConf.hasConflicts) {
       setOkMsg("Không phát hiện trùng phòng hoặc trùng người tham dự.");
     } else if (hit.length === 0 && peopleConf.hasConflicts) {
-      setOkMsg(""); // có cảnh báo người thì không in OK
+      setOkMsg("");  
     } else if (hit.length > 0) {
-      setOkMsg(""); // có trùng phòng thì để phần hiển thị dưới lo
+      setOkMsg(""); 
     }
   } catch (e: any) {
     setError(e?.message || "Có lỗi khi kiểm tra.");
@@ -341,7 +330,7 @@ if (hit.length === 0 && !peopleConf.hasConflicts) {
                 </option>
               ))}
           </select>
-          <span className="text-xs text-slate-500">Có thể trùng hoặc khác với Chair/người tham dự.</span>
+          <span className="text-xs text-slate-500">Có thể trùng hoặc khác với người tham dự.</span>
         </label>
 
         <label className="grid gap-1 min-w-0">
@@ -403,7 +392,7 @@ if (hit.length === 0 && !peopleConf.hasConflicts) {
 
         {/* Chair */}
         <label className="grid gap-1 min-w-0">
-          <span className="text-sm">Chair</span>
+          <span className="text-sm">Chủ tọa</span>
           <select
             className="w-full max-w-full rounded border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
             value={chair}
@@ -424,7 +413,7 @@ if (hit.length === 0 && !peopleConf.hasConflicts) {
         {/* Participants (checkbox, chọn tất cả/bỏ tất cả, selected nổi lên trên) */}
         <div className="grid gap-2 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium">Người tham dự (Required)</span>
+            <span className="text-sm font-medium">Người tham dự </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -480,7 +469,7 @@ if (hit.length === 0 && !peopleConf.hasConflicts) {
             )}
           </div>
           <span className="text-xs text-slate-500">
-            Chair (nếu chọn) sẽ được gửi với vai trò <b>CHAIR</b>. Những người tick ở trên được gửi với vai trò <b>REQUIRED</b>.
+            Chủ tọa (nếu chọn) sẽ được gửi với vai trò <b>Chủ tọa</b>. Những người tick ở trên được gửi với vai trò <b>người tham gia</b>.
           </span>
         </div>
 
@@ -503,7 +492,7 @@ if (hit.length === 0 && !peopleConf.hasConflicts) {
             disabled={!payload || checking}
             className="rounded-lg border px-3 py-2 hover:bg-slate-100 disabled:opacity-50"
           >
-            Kiểm tra trùng với lịch đã approve, và người dùng đã tham gia
+            Kiểm tra trùng với lịch đã duyệt, và người dùng đã tham gia
           </button>
           <button
             onClick={submit}

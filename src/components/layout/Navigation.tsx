@@ -16,7 +16,7 @@ const navigationItems = [
     ],
    },
   {
-    name: "Quản trị nhân sự",
+    name: "Nhân sự",
     icon: "👨‍💼",
     children: [
       { name: "Tổng quan", href: "/basic-view/userDashBoard", icon: "📊👨‍💼" },
@@ -26,7 +26,16 @@ const navigationItems = [
     ],
   },
   {
-    name: "Quản trị tài sản",
+    name: "Nghỉ phép",
+    icon: "📝",
+    children: [
+      { name: "Tổng quan", href: "/leaveRequest/reports", icon: "📊📝" },
+      { name: "Đơn xin nghỉ phép", href: "/leaveRequest/create", icon: "🛠️📝" },
+      { name: "Duyệt đơn nghỉ phép", href: "/leaveRequest/approvals", icon: "🛠️📝" },      
+    ],
+  },
+  {
+    name: "Tài sản",
     icon: "💼",
     children: [
        { name: "Tổng quan", href: "/basic-view/assetDashBoard", icon: "📊💼" },
@@ -35,7 +44,7 @@ const navigationItems = [
     ],
   },
   {
-    name: "Quản trị lịch họp",
+    name: "Lịch họp",
     icon: "📅",
     children: [
        { name: "Tổng quan cuộc họp", href: "/roomMeetings/dashboard", icon: "📊📅" },
@@ -93,7 +102,7 @@ export default function Navigation() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur supports-backdrop-blur:bg-white/70">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Left: Brand + Mobile toggle */}
           <div className="flex items-center gap-3">
