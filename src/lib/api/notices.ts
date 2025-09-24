@@ -2,7 +2,7 @@ import type { PaginatedNotices } from '@/types/notice';
 import type { CreateNoticeInput, Notice } from '@/types/notice';
 
 export type NoticeStatus = 'draft' | 'published' | 'archived'
-export type NoticeVisibility = 'public' | 'internal' 
+export type NoticeVisibility = 'public' | 'internal'
 
 export interface Paginated<T> {
   items: T[]
@@ -11,22 +11,6 @@ export interface Paginated<T> {
   limit: number
 }
 export type { Notice } from '@/types/notice'
-// Nếu bạn muốn định nghĩa riêng, có thể tham khảo như dưới đây
-
-// export interface Notice {
-//   _id: string
-//   title: string
-//   summary?: string
-//   category?: string
-//   status: NoticeStatus
-//   visibility: NoticeVisibility
-//   tags?: string[]
-//   publishAt?: string
-//   expireAt?: string
-//   createdAt?: string
-//   updatedAt?: string
-//   slug?: string
-// }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn'; // ví dụ: "https://intranet.example.com/api"
 
@@ -74,27 +58,27 @@ export async function listNotices(params: ListNoticesParams = {}): Promise<Pagin
 export async function getNoticeBySlug(slug: string): Promise<Notice> {
   console.log('getNoticeBySlug', slug)
   // TODO: thay bằng endpoint thật của bạn
-  const url = `${API_BASE}/notices/${encodeURIComponent(slug)}`;  
+  const url = `${API_BASE}/notices/${encodeURIComponent(slug)}`;
   const res = await fetch(url, { cache: 'no-store', credentials: 'include' }); // no-store vì chi tiết thường cần mới nhất
   if (!res.ok) throw new Error('Failed to fetch notice detail');
   return res.json();
 }
 
 export async function createNotice(input: CreateNoticeInput): Promise<Notice> {
-// TODO: adjust endpoint/auth as needed
-const url = `${API_BASE}/notices`
-const headers: HeadersInit = { 'Content-Type': 'application/json' }
-const res = await fetch(url, {
-method: 'POST',
-headers,
-credentials: 'include',
-body: JSON.stringify(input),
-})
-if (!res.ok) {
-const msg = await res.text()
-throw new Error(msg || 'Failed to create notice')
-}
-return res.json()
+  // TODO: adjust endpoint/auth as needed
+  const url = `${API_BASE}/notices`
+  const headers: HeadersInit = { 'Content-Type': 'application/json' }
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(msg || 'Failed to create notice')
+  }
+  return res.json()
 }
 
 export async function patchNoticeAdmin(id: string, input: PatchNoticeInput, token?: string): Promise<Notice> {

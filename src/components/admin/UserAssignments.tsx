@@ -77,12 +77,12 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.organizationId || !form.positionId || !form.roleIds?.length) return;
-    
+
     // Ensure roleIds are strings
-    const roleIds = Array.isArray(form.roleIds) 
+    const roleIds = Array.isArray(form.roleIds)
       ? form.roleIds.map(rid => typeof rid === 'string' ? rid : (rid as { _id: string })._id)
       : [];
-    
+
     const payload = { ...form, userId, roleIds };
     if (editingId) {
       await updateUserAssignment(editingId, payload);
@@ -96,10 +96,10 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
 
   const handleEdit = (a: UserAssignment) => {
     // Convert roleIds to strings if they are objects
-    const roleIds = Array.isArray(a.roleIds) 
+    const roleIds = Array.isArray(a.roleIds)
       ? a.roleIds.map(rid => typeof rid === 'string' ? rid : (rid as { _id: string })._id)
       : [];
-    
+
     setForm({
       organizationId: typeof a.organizationId === 'object' && a.organizationId !== null
         ? (a.organizationId as { _id: string })._id
@@ -132,7 +132,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
   return (
     <div style={{ marginTop: 32 }}>
       <h3 style={{ marginBottom: 12 }}>Phân công nhiệm vụ</h3>
-      
+
       {!viewMode && (
         <form onSubmit={handleSubmit} style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <select
@@ -147,7 +147,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
             ))}
           </select>
           <select
-            style={inputStyle}           
+            style={inputStyle}
             value={typeof form.positionId === 'string' ? form.positionId : form.positionId?._id || ''}
             onChange={e => setForm({ ...form, positionId: e.target.value })}
             required
@@ -188,10 +188,10 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
           <select
             style={inputStyle}
             value={form.workType || 'fullTime'}
-            onChange={e => setForm({ ...form, workType: e.target.value })}  
+            onChange={e => setForm({ ...form, workType: e.target.value })}
             required
           >
-            <option value="fullTime">Toàn thời gian</option>  
+            <option value="fullTime">Toàn thời gian</option>
             <option value="halftime">Bán thời gian</option>
             <option value="remote">Làm việc từ xa</option>
           </select>
@@ -201,14 +201,14 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
               checked={form.isActive}
               onChange={e => setForm({ ...form, isActive: e.target.checked })}
             /> Hoạt động
-          </label>   
+          </label>
           <label style={{ marginRight: 8 }}>
             <input
               type="checkbox"
               checked={form.isPrimary}
               onChange={e => setForm({ ...form, isPrimary: e.target.checked })}
             /> Nhiệm vụ chính
-          </label>     
+          </label>
 
           <button type="submit" style={buttonStyle}>{editingId ? 'Cập nhật' : 'Thêm mới'}</button>
           {editingId && <button type="button" style={buttonDangerStyle} onClick={() => { setForm({ organizationId: '', positionId: '', roleIds: [], isActive: true, isPrimary: false, timeIn: '', timeOut: '', workType: 'fullTime' }); setEditingId(null); }}>Hủy</button>}
@@ -234,35 +234,35 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
             <tr key={a._id}>
               <td style={tdStyle}>
                 {
-  typeof a.organizationId === 'object' && a.organizationId !== null && 'name' in a.organizationId
-    ? (a.organizationId as { name: string }).name
-    : organizations.find(o => o._id === a.organizationId)?.name || 'N/A'
-}
+                  typeof a.organizationId === 'object' && a.organizationId !== null && 'name' in a.organizationId
+                    ? (a.organizationId as { name: string }).name
+                    : organizations.find(o => o._id === a.organizationId)?.name || 'N/A'
+                }
               </td>
               <td style={tdStyle}>
-    {typeof a.positionId === 'object' && a.positionId !== null && 'name' in a.positionId
-        ? (a.positionId as { name: string }).name
-        : String(a.positionId)}
-</td>
+                {typeof a.positionId === 'object' && a.positionId !== null && 'name' in a.positionId
+                  ? (a.positionId as { name: string }).name
+                  : String(a.positionId)}
+              </td>
               <td style={tdStyle}>
                 {Array.isArray(a.roleIds) && a.roleIds.length > 0
                   ? a.roleIds.map((rid, index) => {
-                      // Handle both string and object cases
-                      let roleName = '';
-                      if (typeof rid === 'string') {
-                        roleName = roles.find(r => r._id === rid)?.name || rid;
-                      } else if (rid && typeof rid === 'object' && 'name' in rid) {
-                        roleName = (rid as { name: string; _id: string }).name || (rid as { _id: string })._id;
-                      } else {
-                        roleName = String(rid);
-                      }
-                      return roleName;
-                    }).join(', ')
+                    // Handle both string and object cases
+                    let roleName = '';
+                    if (typeof rid === 'string') {
+                      roleName = roles.find(r => r._id === rid)?.name || rid;
+                    } else if (rid && typeof rid === 'object' && 'name' in rid) {
+                      roleName = (rid as { name: string; _id: string }).name || (rid as { _id: string })._id;
+                    } else {
+                      roleName = String(rid);
+                    }
+                    return roleName;
+                  }).join(', ')
                   : 'Chưa có vai trò'
                 }
               </td>
-              <td style={tdStyle}>{a.isActive ? '✔️' : '❌'}</td>    
-              <td style={tdStyle}>{a.isPrimary ? '✔️' : '❌'}</td>  
+              <td style={tdStyle}>{a.isActive ? '✔️' : '❌'}</td>
+              <td style={tdStyle}>{a.isPrimary ? '✔️' : '❌'}</td>
               <td style={tdStyle}>{a.timeIn ? new Date(a.timeIn).toLocaleDateString() : ''}</td>
               <td style={tdStyle}>{a.timeOut ? new Date(a.timeOut).toLocaleDateString() : ''}</td>
               <td style={tdStyle}>{a.workType ? a.workType : 'fullTime'}</td>

@@ -7,14 +7,15 @@ import { useAuth } from "@/context/AuthContext";
 import Bell from "@/components/notifications/Bell";
 
 const navigationItems = [
-  { name: "Trang chủ", href: "/", icon: "🏠",
+  {
+    name: "Trang chủ", href: "/", icon: "🏠",
     children: [
       { name: "Trang chủ", href: "/", icon: "🏠" },
       { name: "Thông báo", href: "/notices", icon: "📣" },
       { name: "Quản trị thông báo", href: "/notices/admin", icon: "🛠️📣" },
       { name: "Tạo thông báo mới", href: "/notices/new", icon: "📣" },
     ],
-   },
+  },
   {
     name: "Nhân sự",
     icon: "👨‍💼",
@@ -26,19 +27,22 @@ const navigationItems = [
     ],
   },
   {
-    name: "Nghỉ phép",
+    name: "Nghỉ phép, Tăng ca",
     icon: "📝",
     children: [
-      { name: "Tổng quan", href: "/leaveRequest/reports", icon: "📊📝" },
+      { name: "Tổng quan nghỉ phép", href: "/leaveRequest/reports", icon: "📊📝" },
       { name: "Đơn xin nghỉ phép", href: "/leaveRequest/create", icon: "🛠️📝" },
-      { name: "Duyệt đơn nghỉ phép", href: "/leaveRequest/approvals", icon: "🛠️📝" },      
+      { name: "Duyệt đơn nghỉ phép", href: "/leaveRequest/approvals", icon: "🛠️📝" },
+      { name: "Tổng quan tăng ca", href: "/overTime/reports", icon: "📊📝" },
+      { name: "Đơn xin tăng ca", href: "/overTime/create", icon: "🛠️📝" },
+      { name: "Duyệt đơn tăng ca", href: "/overTime/approvals", icon: "🛠️📝" },
     ],
   },
   {
     name: "Tài sản",
     icon: "💼",
     children: [
-       { name: "Tổng quan", href: "/basic-view/assetDashBoard", icon: "📊💼" },
+      { name: "Tổng quan", href: "/basic-view/assetDashBoard", icon: "📊💼" },
       { name: "Quản trị Tài sản", href: "/adminAssets/assets", icon: "🛠️👨‍💼" },
       { name: "View tài sản", href: "/basic-view/asset", icon: "🔎💼" },
     ],
@@ -47,7 +51,7 @@ const navigationItems = [
     name: "Lịch họp",
     icon: "📅",
     children: [
-       { name: "Tổng quan cuộc họp", href: "/roomMeetings/dashboard", icon: "📊📅" },
+      { name: "Tổng quan cuộc họp", href: "/roomMeetings/dashboard", icon: "📊📅" },
       { name: "Đăng ký lịch họp", href: "/roomMeetings/meetings/new", icon: "🛠️📅" },
       { name: "Duyệt lịch họp", href: "/roomMeetings/registrations", icon: "🛠️📅" },
       { name: "Xem lịch họp", href: "/roomMeetings/rooms", icon: "🔎📅" },
@@ -77,7 +81,7 @@ export default function Navigation() {
     try {
       const raw = window?.localStorage?.getItem("userInfo");
       if (raw) setFullName(JSON.parse(raw)?.fullName || null);
-    } catch {}
+    } catch { }
   }, []);
 
   // Desktop dropdowns
@@ -135,7 +139,7 @@ export default function Navigation() {
                     >
                       <span className="mr-2">{item.icon}</span>
                       {item.name}
-                      <svg className="ml-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+                      <svg className="ml-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                     </button>
                     {openDropdown === item.name && (
                       <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg ring-1 ring-black/5 z-[60]">
@@ -195,7 +199,7 @@ export default function Navigation() {
                     aria-expanded={openAccordion === item.name}
                   >
                     <span className="flex items-center"><span className="mr-2">{item.icon}</span>{item.name}</span>
-                    <svg className={`h-4 w-4 transition-transform ${openAccordion === item.name ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/></svg>
+                    <svg className={`h-4 w-4 transition-transform ${openAccordion === item.name ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" /></svg>
                   </button>
                   {openAccordion === item.name && (
                     <div className="pl-8 pr-2 py-1 space-y-1">

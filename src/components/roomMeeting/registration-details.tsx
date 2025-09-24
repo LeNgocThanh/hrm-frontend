@@ -12,7 +12,7 @@ export default function RegistrationDetails({
   meeting, onClose, usersMap, roomsMap, orgsMap, hasConflicts, disableApprove
 }: {
   meeting: Meeting;
-  onClose: ()=>void;
+  onClose: () => void;
   usersMap: Map<string, User>;
   roomsMap: Map<string, MeetingRoom>;
   orgsMap: Map<string, Organization>;
@@ -25,13 +25,13 @@ export default function RegistrationDetails({
   const roomOwner = room ? orgsMap.get(String(room.organizationId)) : undefined;
   const organizer = usersMap.get(String(meeting.organizerId));
 
-  const chairs = (meeting.participants||[]).filter(p => p.role==='CHAIR');
+  const chairs = (meeting.participants || []).filter(p => p.role === 'CHAIR');
   const chairNames = chairs.length
     ? chairs.map(p => usersMap.get(String(p.userId))?.fullName || `User#${String(p.userId).slice(-6)}`).join(', ')
     : '—';
 
   const participants = useMemo(() => (
-    (meeting.participants||[]).map(p => ({
+    (meeting.participants || []).map(p => ({
       id: String(p.userId),
       name: usersMap.get(String(p.userId))?.fullName || `User#${String(p.userId).slice(-6)}`,
       role: p.role,
@@ -40,7 +40,7 @@ export default function RegistrationDetails({
     }))
   ), [meeting.participants, usersMap]);
 
-  async function approve(decision: 'APPROVED'|'REJECTED') {
+  async function approve(decision: 'APPROVED' | 'REJECTED') {
     if (decision === 'APPROVED' && disableApprove) return;
     try {
       await api(`/meetings/${meeting._id}/approve`, {
@@ -49,7 +49,7 @@ export default function RegistrationDetails({
       });
       router.refresh();
       onClose();
-    } catch (e:any) {
+    } catch (e: any) {
       alert(e.message || 'Có lỗi xảy ra khi duyệt');
     }
   }
@@ -79,7 +79,7 @@ export default function RegistrationDetails({
           <div><span className="font-medium">Người tổ chức:</span> {organizer?.fullName || String(meeting.organizerId)}</div>
           <div><span className="font-medium">Chủ tọa (Chair):</span> {chairNames}</div>
           {meeting.agenda && <div><span className="font-medium">Agenda:</span> {meeting.agenda}</div>}
-          {meeting.note &&   <div><span className="font-medium">Ghi chú:</span> {meeting.note}</div>}
+          {meeting.note && <div><span className="font-medium">Ghi chú:</span> {meeting.note}</div>}
         </div>
 
         {/* Participants */}
@@ -122,7 +122,7 @@ export default function RegistrationDetails({
         {/* Actions */}
         <div className="mt-4 flex gap-2">
           <button
-            onClick={()=>approve('APPROVED')}
+            onClick={() => approve('APPROVED')}
             disabled={!!disableApprove}
             className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
             title={disableApprove ? 'Không thể duyệt cuộc họp quá khứ' : 'Phê duyệt'}
@@ -130,7 +130,7 @@ export default function RegistrationDetails({
             Duyệt
           </button>
           <button
-            onClick={()=>approve('REJECTED')}
+            onClick={() => approve('REJECTED')}
             className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
           >
             Từ chối

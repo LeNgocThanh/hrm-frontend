@@ -5,9 +5,12 @@ const accessToken = localStorage.getItem('accessToken');
 
 class UserProfileApi {
   async getUserProfile(userId: string): Promise<UserProfile> {
-    const res = await fetch(`${API_URL}/user-profile/${userId}`, { headers: {
-      'Authorization': `Bearer ${accessToken}`, }
-      ,cache: 'no-store' });
+    const res = await fetch(`${API_URL}/user-profile/${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      }
+      , cache: 'no-store'
+    });
     if (!res.ok) {
       if (res.status === 404) {
         throw { status: 404, message: 'User profile not found' };
@@ -21,8 +24,10 @@ class UserProfileApi {
   async createUserProfile(data: CreateUserProfileDto): Promise<UserProfile> {
     const res = await fetch(`${API_URL}/user-profile`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`
-        ,'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+        , 'Content-Type': 'application/json'
+      },
       body: JSON.stringify(data),
     });
     if (!res.ok) {
@@ -35,8 +40,10 @@ class UserProfileApi {
   async updateUserProfile(userId: string, data: UpdateUserProfileDto): Promise<UserProfile> {
     const res = await fetch(`${API_URL}/user-profile/${userId}`, {
       method: 'PUT',
-      headers: { 'Authorization': `Bearer ${accessToken}`
-        ,'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+        , 'Content-Type': 'application/json'
+      },
       body: JSON.stringify(data),
     });
     if (!res.ok) {

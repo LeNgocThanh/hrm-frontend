@@ -38,7 +38,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [isSuccess, setIsSuccess] = useState<boolean | null>(null);
-//const {apiCall} = useAuth();
+  //const {apiCall} = useAuth();
   useEffect(() => {
     if (userId) {
       fetchUserProfile(userId);
@@ -47,7 +47,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
 
   const fetchUserProfile = async (userId: string) => {
     try {
-//const result = await apiCall('/user-profile/'+userId);
+      //const result = await apiCall('/user-profile/'+userId);
       const profile = await userProfileApi.getUserProfile(userId);
       setExistingProfile(profile as UserProfileResponse);
       setProfileForm({
@@ -108,16 +108,16 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
 
     try {
       const payload: CreateUserProfileDto | UpdateUserProfileDto = { ...profileForm };
-      
+
       if (isEditing) {
         await userProfileApi.updateUserProfile(userId, payload);
       } else {
         await userProfileApi.createUserProfile(payload as CreateUserProfileDto);
       }
-      
+
       setStatusMessage(`${isEditing ? 'Cập nhật' : 'Tạo'} hồ sơ thành công!`);
       setIsSuccess(true);
-      
+
       // Refresh profile data
       await fetchUserProfile(userId);
     } catch (error: any) {
@@ -132,7 +132,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-800">Hồ sơ cá nhân</h3>
-      
+
       {!viewMode && (
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-xl font-semibold text-gray-700 mb-4">
@@ -143,7 +143,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
             {/* Personal Information */}
             <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
               <h4 className="text-lg font-medium text-gray-700 mb-3">Thông tin cá nhân</h4>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 text-sm font-medium mb-1">
@@ -205,7 +205,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
             {/* Identity Information */}
             <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
               <h4 className="text-lg font-medium text-gray-700 mb-3">Thông tin giấy tờ</h4>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-gray-700 text-sm font-medium mb-1">
@@ -250,7 +250,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
             {/* Banking Information */}
             <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
               <h4 className="text-lg font-medium text-gray-700 mb-3">Thông tin ngân hàng</h4>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-gray-700 text-sm font-medium mb-1">
@@ -325,14 +325,13 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
               <button
                 type="submit"
                 disabled={isProcessing}
-                className={`px-6 py-2 rounded-md font-medium transition-colors ${
-                  isProcessing
+                className={`px-6 py-2 rounded-md font-medium transition-colors ${isProcessing
                     ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                  }`}
               >
-                {isProcessing 
-                  ? (isEditing ? 'Đang cập nhật...' : 'Đang tạo...') 
+                {isProcessing
+                  ? (isEditing ? 'Đang cập nhật...' : 'Đang tạo...')
                   : (isEditing ? 'Cập nhật hồ sơ' : 'Tạo hồ sơ')
                 }
               </button>
@@ -342,11 +341,10 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
           {/* Status Message */}
           {statusMessage && (
             <div
-              className={`mt-4 p-4 rounded-lg text-center ${
-                isSuccess === true ? 'bg-green-100 text-green-800' :
-                isSuccess === false ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
-              }`}
+              className={`mt-4 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
+                  isSuccess === false ? 'bg-red-100 text-red-800' :
+                    'bg-blue-100 text-blue-800'
+                }`}
             >
               <p className="font-medium">{statusMessage}</p>
             </div>
@@ -364,7 +362,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
                 <h4 className="text-lg font-semibold text-blue-800">Thông tin hồ sơ</h4>
                 <p className="text-sm text-blue-600 mt-1">
                   Được tạo: {new Date(existingProfile.createdAt).toLocaleDateString('vi-VN')}
-                  {existingProfile.updatedAt !== existingProfile.createdAt && 
+                  {existingProfile.updatedAt !== existingProfile.createdAt &&
                     ` • Cập nhật: ${new Date(existingProfile.updatedAt).toLocaleDateString('vi-VN')}`
                   }
                 </p>
@@ -395,9 +393,9 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
                   <label className="text-sm font-medium text-gray-500">Tình trạng hôn nhân</label>
                   <p className="text-gray-900 mt-1">
                     {existingProfile.maritalStatus === 'single' ? 'Độc thân' :
-                     existingProfile.maritalStatus === 'married' ? 'Đã kết hôn' :
-                     existingProfile.maritalStatus === 'divorced' ? 'Đã ly hôn' :
-                     existingProfile.maritalStatus || 'Chưa cập nhật'}
+                      existingProfile.maritalStatus === 'married' ? 'Đã kết hôn' :
+                        existingProfile.maritalStatus === 'divorced' ? 'Đã ly hôn' :
+                          existingProfile.maritalStatus || 'Chưa cập nhật'}
                   </p>
                 </div>
               </div>
@@ -430,7 +428,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
               <div>
                 <label className="text-sm font-medium text-gray-500">Ngày cấp</label>
                 <p className="text-gray-900 mt-1">
-                  {existingProfile.nationalIdIssuedDate 
+                  {existingProfile.nationalIdIssuedDate
                     ? new Date(existingProfile.nationalIdIssuedDate).toLocaleDateString('vi-VN')
                     : 'Chưa cập nhật'
                   }
@@ -466,7 +464,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
               </div>
             </div>
           </div>
-           <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <h5 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
               <span className="w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mr-2 text-sm">
                 🏦
@@ -481,7 +479,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
               <div>
                 <label className="text-sm font-medium text-gray-500">Các loại chứng chỉ</label>
                 <p className="text-gray-900 mt-1">{existingProfile.certificate || 'Chưa cập nhật'}</p>
-              </div>              
+              </div>
             </div>
           </div>
         </div>
@@ -497,7 +495,7 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
           </div>
           <h4 className="text-lg font-medium text-gray-600 mb-2">Chưa có hồ sơ cá nhân</h4>
           <p className="text-gray-500">
-            {viewMode 
+            {viewMode
               ? 'Người dùng này chưa có thông tin hồ sơ cá nhân.'
               : 'Hãy tạo hồ sơ cá nhân bằng cách điền form bên trên.'
             }

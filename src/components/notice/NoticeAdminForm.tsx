@@ -24,8 +24,8 @@ function chipify(str?: string) {
 }
 
 export default function NoticeAdminForm({
-  noticeId,          
-  initialData,       
+  noticeId,
+  initialData,
   onSuccess,          // callback khi lưu thành công (dùng cho Modal)
   onCancel,           // callback khi bấm Huỷ (dùng cho Modal)
 }: {
@@ -58,7 +58,7 @@ export default function NoticeAdminForm({
   useEffect(() => {
     if (!initialData) return;
     const ci = (initialData as any).coverImage;
-    
+
     setForm((prev) => ({
       ...prev,
       title: initialData.title ?? prev.title,
@@ -78,21 +78,21 @@ export default function NoticeAdminForm({
     setTagsInput((initialData.tags || []).join(', '));
     setAllowedInput(((initialData as any).allowedPermissions || []).join(', '));
     if (ci && typeof ci === 'object') {
-    setCoverPreview(ci as any);
-    return;
-  }
+      setCoverPreview(ci as any);
+      return;
+    }
     // coverPreview/attachPreview không có đủ metadata để hiển thị file name ⇒ giữ placeholder
     if (ci && typeof ci === 'string') {
-    // Thử gọi getFileInfo(id) nếu /files/:id tồn tại trong BE của bạn
-    getFileInfo(ci)
-      .then((info) => setCoverPreview(info as any))
-      .catch(() => {
-        // Fallback: nếu trông giống path thì dựng preview từ path
-        if (ci.includes('/') || ci.includes('\\') || ci.includes('.')) {
-          setCoverPreview({ id: ci, path: ci } as any);
-        }
-      });
-  }
+      // Thử gọi getFileInfo(id) nếu /files/:id tồn tại trong BE của bạn
+      getFileInfo(ci)
+        .then((info) => setCoverPreview(info as any))
+        .catch(() => {
+          // Fallback: nếu trông giống path thì dựng preview từ path
+          if (ci.includes('/') || ci.includes('\\') || ci.includes('.')) {
+            setCoverPreview({ id: ci, path: ci } as any);
+          }
+        });
+    }
   }, [initialData]);
 
   const { mutateAsync, isPending } = useMutation({
@@ -122,14 +122,14 @@ export default function NoticeAdminForm({
   const set = (k: keyof CreateNoticeInput, v: any) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
-  
+
   const modules = {
     toolbar: [
-      [{ 'header': '1'}, {'header': '2'}, { 'font': [] }],
-      [{size: []}],
+      [{ 'header': '1' }, { 'header': '2' }, { 'font': [] }],
+      [{ size: [] }],
       ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{'list': 'ordered'}, {'list': 'bullet'}, 
-       {'indent': '-1'}, {'indent': '+1'}],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' },
+      { 'indent': '-1' }, { 'indent': '+1' }],
       ['link', 'image', 'video'],
       ['clean']
     ],
@@ -200,7 +200,7 @@ export default function NoticeAdminForm({
 
       <div className="space-y-1">
         <label className="text-sm font-medium">Nội dung</label>
-           <ReactQuill
+        <ReactQuill
           theme="snow"
           value={(form as any).content || ''}
           onChange={(v) => set('content', v)}
@@ -292,33 +292,33 @@ export default function NoticeAdminForm({
         ) : null}
       </div>
 
-     <div className="grid gap-4 sm:grid-cols-2">
-  <div className="space-y-1">
-    <label className="text-sm font-medium">{VI_MISC.status}</label>
-    <select
-      value={form.status}
-      onChange={(e) => set('status', e.target.value as NoticeStatus)}
-      className="w-full rounded-xl border px-3 py-2"
-    >
-      {STATUS_OPTIONS_VI.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1">
+          <label className="text-sm font-medium">{VI_MISC.status}</label>
+          <select
+            value={form.status}
+            onChange={(e) => set('status', e.target.value as NoticeStatus)}
+            className="w-full rounded-xl border px-3 py-2"
+          >
+            {STATUS_OPTIONS_VI.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
 
-  <div className="space-y-1">
-    <label className="text-sm font-medium">{VI_MISC.visibility}</label>
-    <select
-      value={form.visibility}
-      onChange={(e) => set('visibility', e.target.value as NoticeVisibility)}
-      className="w-full rounded-xl border px-3 py-2"
-    >
-      {VIS_OPTIONS_VI.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  </div>
-</div>     
+        <div className="space-y-1">
+          <label className="text-sm font-medium">{VI_MISC.visibility}</label>
+          <select
+            value={form.visibility}
+            onChange={(e) => set('visibility', e.target.value as NoticeVisibility)}
+            className="w-full rounded-xl border px-3 py-2"
+          >
+            {VIS_OPTIONS_VI.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="space-y-1">
         <label className="text-sm font-medium">Tags (comma-separated)</label>
         <input

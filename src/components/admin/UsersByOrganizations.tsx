@@ -19,7 +19,7 @@ interface Organization {
   description?: string;
   path?: string;
   parent?: string;
-  level: number; 
+  level: number;
   createdAt: string;
 }
 
@@ -41,13 +41,13 @@ export default function UsersByOrganizations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  
+
   // User form states
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [createdUserId, setCreatedUserId] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState<CreateUserData>({
     fullName: '',
     birthDay: '',
@@ -70,11 +70,11 @@ export default function UsersByOrganizations() {
         apiClient.getUsers(),
         getPositions()
       ]);
-      
+
       setOrganizations(orgsData);
       setAllUsers(usersData as User[]);
       setPositions(positionsData);
-      
+
       // Fetch all user assignments
       const allAssignments: UserAssignment[] = [];
       for (const user of usersData as User[]) {
@@ -86,7 +86,7 @@ export default function UsersByOrganizations() {
         }
       }
       setUserAssignments(allAssignments);
-      
+
       buildTreeWithUsers(orgsData, usersData as User[], allAssignments, positionsData);
     } catch (err) {
       setError('Không thể tải dữ liệu');
@@ -96,18 +96,18 @@ export default function UsersByOrganizations() {
   };
 
   const buildTreeWithUsers = (
-    orgs: Organization[], 
-    users: User[], 
-    assignments: UserAssignment[], 
+    orgs: Organization[],
+    users: User[],
+    assignments: UserAssignment[],
     positions: Position[]
   ) => {
     const orgMap = new Map<string, TreeNode>();
-    
+
     // Tạo tất cả nodes
     orgs.forEach(org => {
       orgMap.set(org._id, { ...org, children: [], users: [] });
     });
-    
+
     // Xây dựng quan hệ cha-con
     orgs.forEach(org => {
       if (org.parent && orgMap.has(org.parent)) {
@@ -118,35 +118,35 @@ export default function UsersByOrganizations() {
         }
       }
     });
-    
+
     // Gán users vào các organization nodes
     assignments.forEach(assignment => {
-      const orgId = typeof assignment.organizationId === 'object' 
-        ? (assignment.organizationId as any)._id 
+      const orgId = typeof assignment.organizationId === 'object'
+        ? (assignment.organizationId as any)._id
         : assignment.organizationId;
       const userId = typeof assignment.userId === 'object'
         ? (assignment.userId as any)._id
         : assignment.userId;
-        
+
       const orgNode = orgMap.get(orgId);
       const user = users.find(u => u._id === userId);
-      
+
       if (orgNode && user && !orgNode.users.find(u => u._id === user._id)) {
         // Get position level for sorting
         const positionId = typeof assignment.positionId === 'object'
           ? (assignment.positionId as any)._id
           : assignment.positionId;
         const position = positions.find(p => p._id === positionId);
-        
+
         const userWithPosition: UserWithPosition = {
           ...user,
           positionLevel: position?.level || 999
         };
-        
+
         orgNode.users.push(userWithPosition);
       }
     });
-    
+
     // Sort users in each organization
     orgMap.forEach(node => {
       node.users.sort((a: UserWithPosition, b: UserWithPosition) => {
@@ -157,7 +157,7 @@ export default function UsersByOrganizations() {
         return a.fullName.localeCompare(b.fullName);
       });
     });
-    
+
     // Lấy root nodes
     const roots = Array.from(orgMap.values()).filter(org => !org.parent);
     setTreeData(roots);
@@ -235,7 +235,7 @@ export default function UsersByOrganizations() {
       gender: user.gender || '',
       details: user.details || '',
       email: user.email,
-      phone: user.phone || '',    
+      phone: user.phone || '',
       avatarUrl: user.avatarUrl || '',
       employeeStatus: user.employeeStatus
     });
@@ -292,7 +292,7 @@ export default function UsersByOrganizations() {
       const assignmentOrgId = typeof a.organizationId === 'object' ? (a.organizationId as any)._id : a.organizationId;
       return assignmentUserId === userId && assignmentOrgId === orgId;
     });
-    
+
     if (assignment) {
       const positionId = typeof assignment.positionId === 'object' ? (assignment.positionId as any)._id : assignment.positionId;
       const position = positions.find(p => p._id === positionId);
@@ -303,7 +303,7 @@ export default function UsersByOrganizations() {
 
   const renderTreeNode = (node: TreeNode, level = 0) => (
     <div key={node._id} className="mb-4">
-      <div 
+      <div
         className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm"
         style={{ marginLeft: level * 20 }}
       >
@@ -315,7 +315,7 @@ export default function UsersByOrganizations() {
             {expanded[node._id] ? '📂' : '📁'}
           </button>
         )}
-        
+
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div>
@@ -327,7 +327,7 @@ export default function UsersByOrganizations() {
                 Cấp {node.level} • {node.users.length} nhân viên
               </span>
             </div>
-            
+
             <button
               onClick={() => handleAddUser(node._id)}
               className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
@@ -338,7 +338,7 @@ export default function UsersByOrganizations() {
           </div>
         </div>
       </div>
-      
+
       {expanded[node._id] && (
         <div className="mt-2" style={{ marginLeft: (level + 1) * 20 }}>
           {/* Users list */}
@@ -367,25 +367,24 @@ export default function UsersByOrganizations() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        user.employeeStatus === 'active' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`px-2 py-1 text-xs rounded-full ${user.employeeStatus === 'active'
+                          ? 'bg-green-100 text-green-800'
                           : user.employeeStatus === 'inactive'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
                         {user.employeeStatus}
                       </span>
-                      
+
                       <button
                         onClick={() => handleEdit(user)}
                         className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                       >
                         Sửa
                       </button>
-                      
+
                       <button
                         onClick={() => handleDeleteUser(user._id)}
                         className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
@@ -398,7 +397,7 @@ export default function UsersByOrganizations() {
               </div>
             </div>
           )}
-          
+
           {/* Child organizations */}
           {node.children.map(child => renderTreeNode(child, level + 1))}
         </div>
@@ -458,7 +457,7 @@ export default function UsersByOrganizations() {
                 label="Email"
                 type="email"
                 value={formData.email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('email', e.target.value)}                
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('email', e.target.value)}
               />
               <Input
                 label="Số điện thoại"
@@ -491,8 +490,8 @@ export default function UsersByOrganizations() {
               <Button type="submit" className="bg-green-600 hover:bg-green-700">
                 {editingUser ? 'Cập nhật' : 'Tạo mới'}
               </Button>
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 onClick={resetForm}
                 className="bg-gray-600 hover:bg-gray-700"
               >
@@ -500,7 +499,7 @@ export default function UsersByOrganizations() {
               </Button>
             </div>
           </form>
-          
+
           {/* UserAssignments component */}
           {(editingUser?._id || createdUserId) && (
             <div className="mt-8">

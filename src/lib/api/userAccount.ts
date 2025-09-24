@@ -13,7 +13,8 @@ export const userAccountApi = {
   createUserAccount: async (data: CreateUserAccountDto): Promise<UserAccountResponse> => {
     const response = await fetch(`${NESTJS_API_BASE_URL}/user-accounts`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
         , 'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -35,7 +36,7 @@ export const userAccountApi = {
     const response = await fetch(`${NESTJS_API_BASE_URL}/user-accounts/${id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json' ,
+        'Content-Type': 'application/json',
       },
     });
     if (response.status === 404) {
@@ -57,12 +58,12 @@ export const userAccountApi = {
     const response = await fetch(`${NESTJS_API_BASE_URL}/user-accounts/user/${userId}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json' ,
+        'Content-Type': 'application/json',
       },
       cache: 'no-store', // Không sử dụng cache để đảm bảo lấy dữ liệu mới nhất
     });
     console.log('Response:', response); // Giữ lại để debug
-    
+
     // Kiểm tra nếu phản hồi là 404 hoặc không có nội dung
     if (response.status === 404) {
       return null; // Không tìm thấy tài khoản cho userId này
@@ -96,7 +97,8 @@ export const userAccountApi = {
   updateUserAccount: async (id: string, data: UpdateUserAccountDto): Promise<UserAccountResponse> => {
     const response = await fetch(`${NESTJS_API_BASE_URL}/user-accounts/${id}`, {
       method: 'PATCH',
-      headers: { 'Authorization': `Bearer ${accessToken}`,
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),

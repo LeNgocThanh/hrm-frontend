@@ -11,7 +11,7 @@ interface Organization {
   description?: string;
   path?: string;
   parent?: string;
-  level: number; 
+  level: number;
   createdAt: string;
 }
 
@@ -37,10 +37,10 @@ export default function OrganizationsManagement() {
     level: 1,
     isActive: true
   });
-  const {apiCall} = useAuth();
+  const { apiCall } = useAuth();
 
   useEffect(() => {
-    
+
     fetchOrganizations();
   }, []);
 
@@ -59,12 +59,12 @@ export default function OrganizationsManagement() {
 
   const buildTree = (orgs: Organization[]) => {
     const orgMap = new Map<string, TreeNode>();
-    
+
     // Tạo tất cả nodes
     orgs.forEach(org => {
       orgMap.set(org._id, { ...org, children: [] });
     });
-    
+
     // Xây dựng quan hệ cha-con
     orgs.forEach(org => {
       if (org.parent && orgMap.has(org.parent)) {
@@ -75,7 +75,7 @@ export default function OrganizationsManagement() {
         }
       }
     });
-    
+
     // Lấy root nodes
     const roots = Array.from(orgMap.values()).filter(org => !org.parent);
     setTreeData(roots);
@@ -85,7 +85,7 @@ export default function OrganizationsManagement() {
     e.preventDefault();
     try {
       let submitData = { ...formData };
-      
+
       // Calculate path and level based on parent
       if (formData.parent) {
         const parentOrg = organizations.find(org => org._id === formData.parent);
@@ -132,14 +132,14 @@ export default function OrganizationsManagement() {
   };
 
   const handleAddChild = (parentId: string) => {
-   // setSelectedParent(parentId);
-    setFormData({ 
-      name: '', 
-      description: '', 
-      parent: parentId, 
-      path: '', 
-      level: 1, 
-      isActive: true 
+    // setSelectedParent(parentId);
+    setFormData({
+      name: '',
+      description: '',
+      parent: parentId,
+      path: '',
+      level: 1,
+      isActive: true
     });
     setEditingOrg(null);
     setShowCreateForm(true);
@@ -162,7 +162,7 @@ export default function OrganizationsManagement() {
 
   const renderTreeNode = (node: TreeNode, level = 0) => (
     <div key={node._id} className="mb-2">
-      <div 
+      <div
         className="flex items-center p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow"
         style={{ marginLeft: level * 20 }}
       >
@@ -174,7 +174,7 @@ export default function OrganizationsManagement() {
             {expanded[node._id] ? '📂' : '📁'}
           </button>
         )}
-        
+
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div>
@@ -184,14 +184,13 @@ export default function OrganizationsManagement() {
               )}
               <span className="text-xs text-gray-400">Cấp {node.level}</span>
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                node.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <span className={`px-2 py-1 text-xs rounded-full ${node.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
                 {node.isActive ? 'Hoạt động' : 'Không hoạt động'}
               </span>
-              
+
               <button
                 onClick={() => handleAddChild(node._id)}
                 className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
@@ -199,7 +198,7 @@ export default function OrganizationsManagement() {
               >
                 + Con
               </button>
-              
+
               <button
                 onClick={() => handleEdit(node)}
                 className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
@@ -207,7 +206,7 @@ export default function OrganizationsManagement() {
               >
                 Sửa
               </button>
-              
+
               <button
                 onClick={() => handleDelete(node._id)}
                 className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
@@ -219,7 +218,7 @@ export default function OrganizationsManagement() {
           </div>
         </div>
       </div>
-      
+
       {node.children.length > 0 && expanded[node._id] && (
         <div className="mt-2">
           {node.children.map(child => renderTreeNode(child, level + 1))}
@@ -385,11 +384,10 @@ export default function OrganizationsManagement() {
                       Cấp {org.level}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        org.isActive === true 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${org.isActive === true
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
-                      }`}>
+                        }`}>
                         {org.isActive === true ? 'Hoạt động' : 'Không hoạt động'}
                       </span>
                     </td>

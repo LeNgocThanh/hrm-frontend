@@ -9,10 +9,10 @@ import StatusPill from '@/components/roomMeeting/statusPill';
 import {
   Meeting,
   MeetingStatus,
-  MeetingRoom, 
+  MeetingRoom,
 } from '@/types/room-meetings';
 
-import { User} from '@/types/index';
+import { User } from '@/types/index';
 
 type Props = {
   meeting: Meeting;
@@ -26,22 +26,22 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
   const router = useRouter();
 
   // Map tên phòng / user
-  const { data: users } = useSWR<User[]>('/users', (p)=>fetcher(p), { revalidateOnFocus:false, dedupingInterval: 5*60_000 });
-  const { data: rooms } = useSWR<MeetingRoom[]>('/meeting-rooms', (p)=>fetcher(p), { revalidateOnFocus:false, dedupingInterval: 5*60_000 });
+  const { data: users } = useSWR<User[]>('/users', (p) => fetcher(p), { revalidateOnFocus: false, dedupingInterval: 5 * 60_000 });
+  const { data: rooms } = useSWR<MeetingRoom[]>('/meeting-rooms', (p) => fetcher(p), { revalidateOnFocus: false, dedupingInterval: 5 * 60_000 });
 
-  const userMap = useMemo(()=> new Map((users||[]).map(u=>[String(u._id), u.fullName])), [users]);
-  const roomMap = useMemo(()=> new Map((rooms||[]).map(r=>[String(r._id), r.name])), [rooms]);
+  const userMap = useMemo(() => new Map((users || []).map(u => [String(u._id), u.fullName])), [users]);
+  const roomMap = useMemo(() => new Map((rooms || []).map(r => [String(r._id), r.name])), [rooms]);
 
   const organizerName = userMap.get(String(meeting.organizerId)) || String(meeting.organizerId);
   const roomName = roomMap.get(String(meeting.roomId)) || String(meeting.roomId);
 
-  const chairs = (meeting.participants||[]).filter(p=>p.role==='CHAIR');
+  const chairs = (meeting.participants || []).filter(p => p.role === 'CHAIR');
   const chairNames = chairs.length
-    ? chairs.map(p=> userMap.get(String(p.userId)) || `User#${String(p.userId).slice(-6)}`).join(', ')
+    ? chairs.map(p => userMap.get(String(p.userId)) || `User#${String(p.userId).slice(-6)}`).join(', ')
     : '—';
 
   const participants = useMemo(() => (
-    (meeting.participants||[]).map(p => ({
+    (meeting.participants || []).map(p => ({
       id: String(p.userId),
       name: userMap.get(String(p.userId)) || `User#${String(p.userId).slice(-6)}`,
       role: p.role,
@@ -50,7 +50,7 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
     }))
   ), [meeting.participants, userMap]);
 
-  async function approve(decision: 'APPROVED'|'REJECTED') {
+  async function approve(decision: 'APPROVED' | 'REJECTED') {
     try {
       await api(`/meetings/${meeting._id}/approve`, {
         method: 'POST',
@@ -59,7 +59,7 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
       onChanged();
       onClose();
       router.refresh();
-    } catch (e:any) {
+    } catch (e: any) {
       alert(e.message || 'Có lỗi xảy ra khi duyệt');
     }
   }
@@ -94,7 +94,7 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
         {/* Basics */}
         <div className="space-y-2 text-sm">
           {meeting.agenda && (<div><span className="font-medium">Agenda:</span> {meeting.agenda}</div>)}
-          {meeting.note &&   (<div><span className="font-medium">Ghi chú:</span> {meeting.note}</div>)}
+          {meeting.note && (<div><span className="font-medium">Ghi chú:</span> {meeting.note}</div>)}
           <div><span className="font-medium">Thời gian:</span> {fmt(meeting.startAt)} → {fmt(meeting.endAt)}</div>
           <div><span className="font-medium">Phòng:</span> {roomName}</div>
           <div><span className="font-medium">Người tổ chức:</span> {organizerName}</div>
@@ -134,7 +134,7 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
           </div>
           <div className="rounded border p-2">
             <div className="text-xs text-slate-500">Trạng thái</div>
-            <div className="text-sm">{meeting.status.replaceAll('_',' ')}</div>
+            <div className="text-sm">{meeting.status.replaceAll('_', ' ')}</div>
           </div>
         </div>
 
@@ -142,11 +142,11 @@ export default function MeetingDetails({ meeting, onClose, onChanged }: Props) {
         {meeting.status === MeetingStatus.PENDING_APPROVAL && (
           <div className="mt-4 flex gap-2">
             <button
-              onClick={()=>approve('APPROVED')}
+              onClick={() => approve('APPROVED')}
               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
             >Duyệt</button>
             <button
-              onClick={()=>approve('REJECTED')}
+              onClick={() => approve('REJECTED')}
               className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
             >Từ chối</button>
           </div>

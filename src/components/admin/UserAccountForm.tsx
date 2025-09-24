@@ -34,12 +34,12 @@ export default function UserAccountForm() {
     const fetchUsers = async () => {
       try {
         setLoadingUsers(true);
-       const response = await fetch(`${NESTJS_API_BASE_URL}/users`, {
-    headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
-        'Content-Type': 'application/json',
-    }
-});
+        const response = await fetch(`${NESTJS_API_BASE_URL}/users`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
+            'Content-Type': 'application/json',
+          }
+        });
         if (!response.ok) {
           throw new Error(`Failed to fetch users: ${response.statusText}`);
         }
@@ -172,7 +172,7 @@ export default function UserAccountForm() {
       // để đảm bảo form hiển thị trạng thái mới nhất và chuyển sang chế độ chỉnh sửa
       await userAccountApi.getUserAccountByUserId(selectedUserId);
 
-    } catch (error: any) {      
+    } catch (error: any) {
       console.error('Lỗi khi gửi tài khoản:', error);
       setStatusMessage(`Lỗi: ${error.message}`);
       setIsSuccess(false);
@@ -283,11 +283,10 @@ export default function UserAccountForm() {
         <button
           type="submit"
           disabled={isProcessing || !selectedUserId || (isEditing && !existingAccount) || (!isEditing && (!accountForm.username || !accountForm.password))}
-          className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${
-            isProcessing || !selectedUserId || (isEditing && !existingAccount) || (!isEditing && (!accountForm.username || !accountForm.password))
+          className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${isProcessing || !selectedUserId || (isEditing && !existingAccount) || (!isEditing && (!accountForm.username || !accountForm.password))
               ? 'bg-indigo-400 cursor-not-allowed'
               : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
-          }`}
+            }`}
         >
           {isProcessing ? 'Đang xử lý...' : (isEditing ? 'Cập nhật Tài khoản' : 'Tạo Tài khoản')}
         </button>
@@ -296,11 +295,10 @@ export default function UserAccountForm() {
       {/* Thông báo trạng thái */}
       {statusMessage && (
         <div
-          className={`mt-6 p-4 rounded-lg text-center ${
-            isSuccess === true ? 'bg-green-100 text-green-800' :
-            isSuccess === false ? 'bg-red-100 text-red-800' :
-            'bg-blue-100 text-blue-800'
-          }`}
+          className={`mt-6 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
+              isSuccess === false ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+            }`}
         >
           <p className="font-medium">{statusMessage}</p>
         </div>

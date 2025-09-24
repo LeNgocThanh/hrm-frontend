@@ -8,13 +8,13 @@ type Props = {
   usersMap: Map<string, string>;
 };
 
-function userLabel(usersMap: Map<string,string>, id?: string) {
+function userLabel(usersMap: Map<string, string>, id?: string) {
   return id ? (usersMap.get(id) ?? id) : '';
 }
 
 function formatDate(d?: string) {
   if (!d) return '';
-  return d.length > 10 ? d.slice(0,10) : d;
+  return d.length > 10 ? d.slice(0, 10) : d;
 }
 
 export default function AssetHistoryRow({ events, usersMap }: Props) {

@@ -5,8 +5,8 @@ import { useMemo, useState } from 'react';
 import { api } from '@/lib/api/room-meetings';
 import { ArrowLeft, ArrowRight, Users, Building2, CalendarDays, UserCircle2 } from 'lucide-react';
 
-type MeetingStatus = 'PENDING_APPROVAL'|'SCHEDULED'|'IN_PROGRESS'|'COMPLETED'|'CANCELLED'|'REJECTED';
-type Participant = { userId?: string; response?: 'ACCEPTED'|'DECLINED'|'PENDING'|'INVITED'|string };
+type MeetingStatus = 'PENDING_APPROVAL' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
+type Participant = { userId?: string; response?: 'ACCEPTED' | 'DECLINED' | 'PENDING' | 'INVITED' | string };
 type Meeting = {
   _id: string; title: string; startAt: string; endAt: string; status: MeetingStatus;
   roomId: string; participants?: Participant[]; externalHeadcount?: number;
@@ -16,12 +16,12 @@ type Room = { _id: string; name: string; capacity?: number };
 const fetcher = (path: string, query?: Record<string, any>) => api(path, { query });
 
 // ==== date helpers (tuần bắt đầu thứ 2) ====
-function atMidnight(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
-function endOfDay(d: Date) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
+function atMidnight(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+function endOfDay(d: Date) { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; }
 function weekStart(d = new Date()) { const x = atMidnight(d); const day = x.getDay(); x.setDate(x.getDate() + (day === 0 ? -6 : 1 - day)); return x; }
-function weekEnd(d = new Date()) { const s = weekStart(d); const x = new Date(s); x.setDate(x.getDate()+6); x.setHours(23,59,59,999); return x; }
-function monthStart(d = new Date()) { return new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0); }
-function monthEnd(d = new Date()) { return new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999); }
+function weekEnd(d = new Date()) { const s = weekStart(d); const x = new Date(s); x.setDate(x.getDate() + 6); x.setHours(23, 59, 59, 999); return x; }
+function monthStart(d = new Date()) { return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0); }
+function monthEnd(d = new Date()) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); }
 const iso = (d: Date) => d.toISOString();
 
 function happened(m: Meeting) {
@@ -61,7 +61,7 @@ function Bar({ value }: { value: number }) {
 
 // ==== Main ====
 export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
-  type Range = 'week'|'month';
+  type Range = 'week' | 'month';
   const [range, setRange] = useState<Range>('week');
   const [anchor, setAnchor] = useState<Date>(new Date()); // dịch theo tuần/tháng
 
@@ -94,8 +94,8 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
   const totals = useMemo(() => {
     const list = (meetings || []).filter(happened);
     const totalMeetings = list.length;
-    const internal = list.reduce((s,m)=> s + countInternal(m.participants), 0);
-    const guests   = list.reduce((s,m)=> s + countGuests(m.externalHeadcount), 0);
+    const internal = list.reduce((s, m) => s + countInternal(m.participants), 0);
+    const guests = list.reduce((s, m) => s + countGuests(m.externalHeadcount), 0);
     return { totalMeetings, internal, guests };
   }, [meetings]);
 
@@ -109,10 +109,10 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
       if (!buckets.has(key)) continue;
       const b = buckets.get(key)!;
       const intr = countInternal(m.participants);
-      const gst  = countGuests(m.externalHeadcount);
+      const gst = countGuests(m.externalHeadcount);
       b.meetings += 1;
       b.internal += intr;
-      b.guests   += gst;
+      b.guests += gst;
 
       if (b.room.capacity && b.room.capacity > 0) {
         // tính utilization từng cuộc họp, rồi lấy trung bình (clip 0..100)
@@ -128,7 +128,7 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
         b.utilization = 0;
       }
     }
-    return Array.from(buckets.values()).sort((a,b)=> a.room.name.localeCompare(b.room.name,'vi'));
+    return Array.from(buckets.values()).sort((a, b) => a.room.name.localeCompare(b.room.name, 'vi'));
   }, [meetings, rooms]);
 
   return (
@@ -143,19 +143,19 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
           <div className="flex items-center gap-2">
             <div className="inline-flex rounded-full border bg-slate-50 p-1">
               <button
-                className={`rounded-full px-3 py-1.5 text-sm ${range==='week'?'bg-white shadow font-semibold':'text-slate-600 hover:bg-white'}`}
-                onClick={()=>setRange('week')}
+                className={`rounded-full px-3 py-1.5 text-sm ${range === 'week' ? 'bg-white shadow font-semibold' : 'text-slate-600 hover:bg-white'}`}
+                onClick={() => setRange('week')}
               >Tuần</button>
               <button
-                className={`rounded-full px-3 py-1.5 text-sm ${range==='month'?'bg-white shadow font-semibold':'text-slate-600 hover:bg-white'}`}
-                onClick={()=>setRange('month')}
+                className={`rounded-full px-3 py-1.5 text-sm ${range === 'month' ? 'bg-white shadow font-semibold' : 'text-slate-600 hover:bg-white'}`}
+                onClick={() => setRange('month')}
               >Tháng</button>
             </div>
             <div className="inline-flex items-center gap-1">
-              <button onClick={()=>shift(-1)} className="rounded-full border p-2 hover:bg-slate-50" title="Lùi">
+              <button onClick={() => shift(-1)} className="rounded-full border p-2 hover:bg-slate-50" title="Lùi">
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <button onClick={()=>shift(1)} className="rounded-full border p-2 hover:bg-slate-50" title="Tiến">
+              <button onClick={() => shift(1)} className="rounded-full border p-2 hover:bg-slate-50" title="Tiến">
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -166,7 +166,7 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
       {/* Cards */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ">
         <Card icon={<Building2 className="h-5 w-5 bg-blue-500" />} title="Số phòng họp" value={rooms.length} hint="Tổng số phòng" />
-        <Card icon={<CalendarDays className="h-5 w-5 bg-blue-500" />} title="Cuộc họp đã diễn ra" value={isLoading ? '…' : totals.totalMeetings} hint={range==='week'?'Tuần hiện tại':'Tháng hiện tại'} loading={isLoading} />
+        <Card icon={<CalendarDays className="h-5 w-5 bg-blue-500" />} title="Cuộc họp đã diễn ra" value={isLoading ? '…' : totals.totalMeetings} hint={range === 'week' ? 'Tuần hiện tại' : 'Tháng hiện tại'} loading={isLoading} />
         <Card icon={<UserCircle2 className="h-5 w-5 bg-blue-500" />} title="Người tham gia (nội bộ)" value={isLoading ? '…' : totals.internal} loading={isLoading} />
         <Card icon={<Users className="h-5 w-5 bg-blue-500" />} title="Khách tham dự" value={isLoading ? '…' : totals.guests} loading={isLoading} />
       </section>
@@ -219,7 +219,7 @@ export default function MeetingsDashboard({ rooms }: { rooms: Room[] }) {
 
         {/* Footer nhỏ: refresh */}
         <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
-          <button onClick={()=>mutate()} className="rounded-full border px-3 py-1.5 text-xs hover:bg-slate-50">Làm mới</button>
+          <button onClick={() => mutate()} className="rounded-full border px-3 py-1.5 text-xs hover:bg-slate-50">Làm mới</button>
         </div>
       </section>
 

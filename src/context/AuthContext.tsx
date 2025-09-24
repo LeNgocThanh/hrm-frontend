@@ -52,17 +52,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Hàm kiểm tra và khôi phục trạng thái từ sessionStorage khi tải lại trang
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      
+
       const storedAccessToken = localStorage.getItem('accessToken');
       const storedUserInfo = localStorage.getItem('userInfo');
       console.log('accessToken', storedAccessToken);
-      
+
       const validateToken = async (token: string) => {
         try {
           const res = await fetch(`${NESTJS_API_BASE_URL}/auth/profile`, {
             headers: { Authorization: `Bearer ${token}` }, credentials: 'include',
           });
-          console.log('token',token);
+          console.log('token', token);
 
           if (res.ok) {
             return true;

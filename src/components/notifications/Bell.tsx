@@ -13,7 +13,7 @@ type Notif = {
   createdAt: string;
   status?: string; // normalize về 'UNREAD' | 'READ'
 };
-type ParticipantMini = { userId?: string; response?: 'ACCEPTED'|'DECLINED'|'PENDING'|'INVITED'|string };
+type ParticipantMini = { userId?: string; response?: 'ACCEPTED' | 'DECLINED' | 'PENDING' | 'INVITED' | string };
 type BasicMeeting = {
   _id: string;
   title: string;
@@ -51,11 +51,11 @@ export default function Bell() {
 
   // normalize status
   const dayNotifs = useMemo(
-    () => (dayNotifsRaw || []).map(n => ({ ...n, status: (n.status || 'UNREAD').toString().toUpperCase() as 'UNREAD'|'READ' })),
+    () => (dayNotifsRaw || []).map(n => ({ ...n, status: (n.status || 'UNREAD').toString().toUpperCase() as 'UNREAD' | 'READ' })),
     [dayNotifsRaw]
   );
   const unread = useMemo(() => dayNotifs.filter(n => n.status === 'UNREAD'), [dayNotifs]);
-  const read   = useMemo(() => dayNotifs.filter(n => n.status === 'READ'),   [dayNotifs]);
+  const read = useMemo(() => dayNotifs.filter(n => n.status === 'READ'), [dayNotifs]);
 
   // 3) System unread (tuỳ chọn giữ)
   const { data: sysNotifs, mutate: mutSys } = useSWR<Notif[]>(
@@ -74,9 +74,9 @@ export default function Bell() {
     mutSys();
     mutDay();
   }
-  async function rsvp(meetingId: string, response: 'ACCEPTED'|'DECLINED') {
+  async function rsvp(meetingId: string, response: 'ACCEPTED' | 'DECLINED') {
     await api(`/meetings/${meetingId}/rsvp`, { method: 'POST', body: JSON.stringify({ response }) });
-    mutPending();  
+    mutPending();
   }
 
   // Badge = số RSVP pending
@@ -118,87 +118,87 @@ export default function Bell() {
       </button>
 
       {open && (
-  <div
-    role="dialog"
-    aria-label="Bảng thông báo"
-    className="absolute right-0 z-40 mt-2 w-[30rem] max-w-[90vw] overflow-hidden rounded-xl border bg-white shadow-lg"
-  >
-    {/* RSVP PENDING */}
-    {pendingRsvp && pendingRsvp.length > 0 && (
-      <>
-        <div className="border-b bg-slate-50 px-3 py-2 text-xs font-medium">Cần xác nhận</div>
-        <div className="max-h-56 overflow-auto">
-          {pendingRsvp.map(m => {
-            const me = (m.participants || []).find(p => p && p.response);
-            const tag = me?.response === 'INVITED' ? 'INVITED'
-                      : me?.response === 'PENDING' ? 'PENDING'
+        <div
+          role="dialog"
+          aria-label="Bảng thông báo"
+          className="absolute right-0 z-40 mt-2 w-[30rem] max-w-[90vw] overflow-hidden rounded-xl border bg-white shadow-lg"
+        >
+          {/* RSVP PENDING */}
+          {pendingRsvp && pendingRsvp.length > 0 && (
+            <>
+              <div className="border-b bg-slate-50 px-3 py-2 text-xs font-medium">Cần xác nhận</div>
+              <div className="max-h-56 overflow-auto">
+                {pendingRsvp.map(m => {
+                  const me = (m.participants || []).find(p => p && p.response);
+                  const tag = me?.response === 'INVITED' ? 'INVITED'
+                    : me?.response === 'PENDING' ? 'PENDING'
                       : undefined;
-            return (
-              <div key={m._id} className="border-b px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="truncate text-sm font-medium">{m.title}</div>
-                  {tag && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{tag}</span>}
-                </div>
-                <div className="text-xs text-slate-600">
-                  {new Date(m.startAt).toLocaleString()} → {new Date(m.endAt).toLocaleString()}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <button onClick={()=>rsvp(m._id,'ACCEPTED')} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white shadow hover:opacity-90">Tham gia</button>
-                  <button onClick={()=>rsvp(m._id,'DECLINED')} className="rounded bg-rose-600 px-2 py-1 text-xs text-white shadow hover:opacity-90">Từ chối</button>
+                  return (
+                    <div key={m._id} className="border-b px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-sm font-medium">{m.title}</div>
+                        {tag && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{tag}</span>}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {new Date(m.startAt).toLocaleString()} → {new Date(m.endAt).toLocaleString()}
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <button onClick={() => rsvp(m._id, 'ACCEPTED')} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white shadow hover:opacity-90">Tham gia</button>
+                        <button onClick={() => rsvp(m._id, 'DECLINED')} className="rounded bg-rose-600 px-2 py-1 text-xs text-white shadow hover:opacity-90">Từ chối</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* NOTIFICATIONS TRONG NGÀY */}
+          <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2">
+            <div className="text-xs font-medium">Thông báo trong ngày (cuộc họp)</div>
+            <input
+              type="date"
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="rounded border px-2 py-1 text-xs"
+              title="Chọn ngày để xem"
+            />
+          </div>
+          <div className="max-h-64 overflow-auto">
+            {(!dayNotifs || dayNotifs.length === 0) && (
+              <div className="px-3 py-2 text-sm text-slate-500">Không có thông báo trong ngày.</div>
+            )}
+
+            {/* UNREAD: nổi bật (đậm + nền + chấm xanh) */}
+            {unread.length > 0 && (
+              <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-slate-500">Các tin Chưa đọc</div>
+            )}
+            {unread.map(n => (
+              <div key={n._id} className="relative border-b bg-slate-50 px-3 py-2">
+                <span className="absolute left-1 top-3 h-2 w-2 rounded-full bg-blue-600" />
+                <div className="ml-3 truncate text-sm font-semibold">{n.title}</div>
+                {n.message && <div className="ml-3 text-xs font-medium text-slate-800">{n.message}</div>}
+                <div className="ml-3 mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>{new Date(n.createdAt).toLocaleString()}</span>
+                  <button onClick={() => markRead(n._id)} className="underline">Đã đọc</button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </>
-    )}
+            ))}
 
-    {/* NOTIFICATIONS TRONG NGÀY */}
-    <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2">
-      <div className="text-xs font-medium">Thông báo trong ngày (cuộc họp)</div>
-      <input
-        type="date"
-        value={dateStr}
-        onChange={(e)=>setDateStr(e.target.value)}
-        className="rounded border px-2 py-1 text-xs"
-        title="Chọn ngày để xem"
-      />
-    </div>
-    <div className="max-h-64 overflow-auto">
-      {(!dayNotifs || dayNotifs.length === 0) && (
-        <div className="px-3 py-2 text-sm text-slate-500">Không có thông báo trong ngày.</div>
-      )}
-
-      {/* UNREAD: nổi bật (đậm + nền + chấm xanh) */}
-      {unread.length > 0 && (
-        <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-slate-500">Các tin Chưa đọc</div>
-      )}
-      {unread.map(n => (
-        <div key={n._id} className="relative border-b bg-slate-50 px-3 py-2">
-          <span className="absolute left-1 top-3 h-2 w-2 rounded-full bg-blue-600" />
-          <div className="ml-3 truncate text-sm font-semibold">{n.title}</div>
-          {n.message && <div className="ml-3 text-xs font-medium text-slate-800">{n.message}</div>}
-          <div className="ml-3 mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>{new Date(n.createdAt).toLocaleString()}</span>
-            <button onClick={()=>markRead(n._id)} className="underline">Đã đọc</button>
+            {/* READ: nhạt, xuống dưới */}
+            {read.length > 0 && (
+              <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-slate-500">Các tin Đã đọc</div>
+            )}
+            {read.map(n => (
+              <div key={n._id} className="border-b px-3 py-2">
+                <div className="truncate text-sm">{n.title}</div>
+                {n.message && <div className="text-xs text-slate-600">{n.message}</div>}
+                <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>{new Date(n.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ))}
-
-      {/* READ: nhạt, xuống dưới */}
-      {read.length > 0 && (
-        <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-slate-500">Các tin Đã đọc</div>
-      )}
-      {read.map(n => (
-        <div key={n._id} className="border-b px-3 py-2">
-          <div className="truncate text-sm">{n.title}</div>
-          {n.message && <div className="text-xs text-slate-600">{n.message}</div>}
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>{new Date(n.createdAt).toLocaleString()}</span>
-          </div>
-        </div>
-      ))}
-    </div>
 
           {/* SYSTEM UNREAD (tuỳ chọn) */}
           {/* <div className="border-b bg-slate-50 px-3 py-2 text-xs font-medium">

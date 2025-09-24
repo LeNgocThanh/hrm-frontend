@@ -25,14 +25,18 @@ function assertOk(res: Response) {
 }
 
 function jsonHeaders() {
-  return { 'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`  };
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken}`
+  };
 }
 //----------------- Organization -------------------
 export async function listOrganizations(): Promise<Organization[]> {
-  const res = await fetch(`${API_BASE}/organizations`, { next: { revalidate: 0 }, headers: {
-    'Authorization': `Bearer ${accessToken}`
-  }});
+  const res = await fetch(`${API_BASE}/organizations`, {
+    next: { revalidate: 0 }, headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
   assertOk(res);
   const data = await res.json();
   // Chuẩn hóa tối thiểu
@@ -41,9 +45,11 @@ export async function listOrganizations(): Promise<Organization[]> {
 
 // -------------------- Users --------------------
 export async function listUsers(): Promise<User[]> {
-  const res = await fetch(`${API_BASE}/users`, { next: { revalidate: 0 },headers: {
-    'Authorization': `Bearer ${accessToken}`
-  }});
+  const res = await fetch(`${API_BASE}/users`, {
+    next: { revalidate: 0 }, headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
   assertOk(res);
   const data = await res.json();
   // Chuẩn hóa tối thiểu
@@ -51,14 +57,15 @@ export async function listUsers(): Promise<User[]> {
 }
 
 export async function listUsersInOrganization(id: string): Promise<User[]> {
-  const res = await fetch(`${API_BASE}/organizations/${id}/users`, { next: { revalidate: 0 }, headers: {
-    'Authorization': `Bearer ${accessToken}`,
-    'Accept': 'application/json',
-  },
-cache: 'no-store',
- });
+  const res = await fetch(`${API_BASE}/organizations/${id}/users`, {
+    next: { revalidate: 0 }, headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+    },
+    cache: 'no-store',
+  });
   assertOk(res);
-  const data = await res.json(); 
+  const data = await res.json();
 
   return Array.isArray(data) ? data : (data?.users ?? []);
 }
@@ -81,7 +88,7 @@ export async function listAssets(params?: {
   if (params?.search) q.set('search', params.search);
   if (params?.type) q.set('type', params.type);
   if (params?.status) q.set('status', params.status);
-  
+
   // Xử lý tìm kiếm metadata
   if (params?.metadata) {
     for (const [key, value] of Object.entries(params.metadata)) {
@@ -101,14 +108,14 @@ export async function listAssets(params?: {
 
   const url = `${API_BASE}/assets?${q.toString()}`;
 
-  const res = await fetch(url, { next: { revalidate: 0 }, headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(url, { next: { revalidate: 0 }, headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   const data = await res.json();
   return Array.isArray(data) ? { assets: data } : data;
 }
 
 export async function getAsset(id: string): Promise<Asset> {
-  const res = await fetch(`${API_BASE}/assets/${id}`, { next: { revalidate: 0 }, headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/${id}`, { next: { revalidate: 0 }, headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
@@ -134,22 +141,24 @@ export async function updateAsset(id: string, payload: Partial<Asset>): Promise<
 }
 
 export async function deleteAsset(id: string): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE}/assets/${id}`, { method: 'DELETE', headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/${id}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
 
 // -------------------- Events --------------------
 export async function listAssetEvents(assetId: string): Promise<AssetEvent[]> {
-  const res = await fetch(`${API_BASE}/assets/${assetId}/history`, { next: { revalidate: 0 }, headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/${assetId}/history`, { next: { revalidate: 0 }, headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
 
 export async function createAssetEvent(
   assetId: string,
-  payload: { type: AssetEventType; date: string; note?: string; cost?: { amount: number; currency: string }; fromUserId?: string;
-    toUserId?: string; }
+  payload: {
+    type: AssetEventType; date: string; note?: string; cost?: { amount: number; currency: string }; fromUserId?: string;
+    toUserId?: string;
+  }
 ): Promise<AssetEvent> {
   const res = await fetch(`${API_BASE}/assets/${assetId}/events`, {
     method: 'POST',
@@ -161,14 +170,14 @@ export async function createAssetEvent(
 }
 
 export async function deleteAssetEvent(eventId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE}/assets/events/${eventId}`, { method: 'DELETE', headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/events/${eventId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
 
 // -------------------- Documents --------------------
 export async function listAssetDocuments(assetId: string): Promise<AssetDocument[]> {
-  const res = await fetch(`${API_BASE}/assets/${assetId}/documents`, { next: { revalidate: 0 }, headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/${assetId}/documents`, { next: { revalidate: 0 }, headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
@@ -187,7 +196,7 @@ export async function createAssetDocument(
 }
 
 export async function deleteAssetDocument(assetId: string, docId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE}/assets/documents/${docId}`, { method: 'DELETE', headers: {authorization: `Bearer ${accessToken}`} });
+  const res = await fetch(`${API_BASE}/assets/documents/${docId}`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } });
   assertOk(res);
   return res.json();
 }
@@ -206,7 +215,7 @@ export async function uploadFile(
   const res = await fetch(`${API_BASE}/files/upload`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,      
+      'Authorization': `Bearer ${accessToken}`,
     },
     body: form,
   });

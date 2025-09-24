@@ -22,13 +22,13 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
   // Khoảng thời gian: mặc định hôm nay → +30 ngày
   const anchorRef = useRef(new Date());
   const defaultFrom = useMemo(() => {
-    const d = new Date(anchorRef.current); d.setHours(0,0,0,0); return d.toISOString();
+    const d = new Date(anchorRef.current); d.setHours(0, 0, 0, 0); return d.toISOString();
   }, []);
   const defaultTo = useMemo(() => {
-    const d = new Date(anchorRef.current); d.setDate(d.getDate()+30); d.setHours(23,59,59,999); return d.toISOString();
+    const d = new Date(anchorRef.current); d.setDate(d.getDate() + 30); d.setHours(23, 59, 59, 999); return d.toISOString();
   }, []);
-  const [from, setFrom] = useState<string>(defaultFrom.slice(0,10));
-  const [to, setTo] = useState<string>(defaultTo.slice(0,10));
+  const [from, setFrom] = useState<string>(defaultFrom.slice(0, 10));
+  const [to, setTo] = useState<string>(defaultTo.slice(0, 10));
 
   // ====== Data ======
   const { data: pending } = useSWR<Meeting[]>(
@@ -43,11 +43,11 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
   );
 
   const roomMap = useMemo(() => new Map(rooms.map(r => [r._id, r])), [rooms]);
-  const orgMap  = useMemo(() => new Map(orgs.map(o => [o._id, o])), [orgs]);
+  const orgMap = useMemo(() => new Map(orgs.map(o => [o._id, o])), [orgs]);
   const userMap = useMemo(() => new Map(users.map(u => [u._id, u])), [users]);
   const scheduledByRoom = useMemo(() => {
     const m = new Map<string, Meeting[]>();
-    (scheduled||[]).forEach(me => {
+    (scheduled || []).forEach(me => {
       const key = String(me.roomId);
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(me);
@@ -61,21 +61,21 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
       if (roomId && String(m.roomId) !== roomId) return false;
       if (organizerId && String(m.organizerId) !== organizerId) return false;
       if (chairId) {
-        const hasChair = (m.participants||[]).some(p => p.role === 'CHAIR' && String(p.userId) === chairId);
+        const hasChair = (m.participants || []).some(p => p.role === 'CHAIR' && String(p.userId) === chairId);
         if (!hasChair) return false;
       }
       const s = new Date(m.startAt).getTime();
       const e = new Date(m.endAt).getTime();
-      const f = new Date(from+'T00:00:00').getTime();
-      const t = new Date(to  +'T23:59:59').getTime();
+      const f = new Date(from + 'T00:00:00').getTime();
+      const t = new Date(to + 'T23:59:59').getTime();
       if (!(e > f && s < t)) return false;
 
       if (q.trim()) {
         const QQ = q.trim().toLowerCase();
         const hitText =
-          (m.title||'').toLowerCase().includes(QQ) ||
-          (m.agenda||'').toLowerCase().includes(QQ) ||
-          (m.note||'').toLowerCase().includes(QQ);
+          (m.title || '').toLowerCase().includes(QQ) ||
+          (m.agenda || '').toLowerCase().includes(QQ) ||
+          (m.note || '').toLowerCase().includes(QQ);
         if (!hitText) return false;
       }
       return true;
@@ -86,7 +86,7 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
       const conflicts = others.filter(o => overlaps(s, e, new Date(o.startAt), new Date(o.endAt)));
       return { m, conflicts };
     });
-    return list.sort((a,b) => +new Date(a.m.startAt) - +new Date(b.m.startAt));
+    return list.sort((a, b) => +new Date(a.m.startAt) - +new Date(b.m.startAt));
   }, [pending, roomId, organizerId, chairId, from, to, q, scheduledByRoom]);
 
   // ====== UI ======
@@ -98,36 +98,36 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
       <div className="grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-3 lg:grid-cols-6">
         <label className="grid gap-1">
           <span className="text-xs text-slate-600">Phòng</span>
-          <select className="rounded border px-2 py-1.5 text-sm" value={roomId} onChange={e=>setRoomId(e.target.value)}>
+          <select className="rounded border px-2 py-1.5 text-sm" value={roomId} onChange={e => setRoomId(e.target.value)}>
             <option value="">Tất cả</option>
             {rooms.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1">
           <span className="text-xs text-slate-600">Organizer</span>
-          <select className="rounded border px-2 py-1.5 text-sm" value={organizerId} onChange={e=>setOrganizerId(e.target.value)}>
+          <select className="rounded border px-2 py-1.5 text-sm" value={organizerId} onChange={e => setOrganizerId(e.target.value)}>
             <option value="">Tất cả</option>
-            {users.slice().sort((a,b)=>a.fullName.localeCompare(b.fullName,'vi')).map(u=>(
+            {users.slice().sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi')).map(u => (
               <option key={u._id} value={u._id}>{u.fullName}</option>
             ))}
           </select>
         </label>
         <label className="grid gap-1">
           <span className="text-xs text-slate-600">Chair</span>
-          <select className="rounded border px-2 py-1.5 text-sm" value={chairId} onChange={e=>setChairId(e.target.value)}>
+          <select className="rounded border px-2 py-1.5 text-sm" value={chairId} onChange={e => setChairId(e.target.value)}>
             <option value="">Tất cả</option>
-            {users.slice().sort((a,b)=>a.fullName.localeCompare(b.fullName,'vi')).map(u=>(
+            {users.slice().sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi')).map(u => (
               <option key={u._id} value={u._id}>{u.fullName}</option>
             ))}
           </select>
         </label>
         <label className="grid gap-1">
           <span className="text-xs text-slate-600">Từ ngày</span>
-          <input type="date" className="rounded border px-2 py-1.5 text-sm" value={from} onChange={e=>setFrom(e.target.value)} />
+          <input type="date" className="rounded border px-2 py-1.5 text-sm" value={from} onChange={e => setFrom(e.target.value)} />
         </label>
         <label className="grid gap-1">
           <span className="text-xs text-slate-600">Đến ngày</span>
-          <input type="date" className="rounded border px-2 py-1.5 text-sm" value={to} onChange={e=>setTo(e.target.value)} />
+          <input type="date" className="rounded border px-2 py-1.5 text-sm" value={to} onChange={e => setTo(e.target.value)} />
         </label>
         <label className="grid gap-1 lg:col-span-2">
           <span className="text-xs text-slate-600">Tìm kiếm</span>
@@ -135,7 +135,7 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
             className="rounded border px-2 py-1.5 text-sm"
             placeholder="Tiêu đề, agenda, note…"
             value={q}
-            onChange={e=>setQ(e.target.value)}
+            onChange={e => setQ(e.target.value)}
           />
         </label>
       </div>
@@ -148,8 +148,8 @@ export default function ClientRegistration({ rooms, orgs, users }: Props) {
           const room = roomMap.get(String(m.roomId));
           const orgOwner = room ? orgMap.get(String(room.organizationId)) : undefined;
           const organizer = userMap.get(String(m.organizerId));
-          const chairNames = (m.participants||[])
-            .filter(p => p.role==='CHAIR')
+          const chairNames = (m.participants || [])
+            .filter(p => p.role === 'CHAIR')
             .map(p => userMap.get(String(p.userId))?.fullName || `User#${String(p.userId).slice(-6)}`)
             .join(', ') || '—';
 
@@ -193,7 +193,7 @@ function RegistrationItem({
   return (
     <>
       <button
-        onClick={()=>setOpen(true)}
+        onClick={() => setOpen(true)}
         className="flex w-full items-start justify-between gap-4 rounded-xl border bg-white p-4 text-left hover:bg-slate-50"
       >
         <div className="min-w-0">
@@ -219,7 +219,7 @@ function RegistrationItem({
       {open && (
         <RegistrationDetails
           meeting={meeting}
-          onClose={()=>setOpen(false)}
+          onClose={() => setOpen(false)}
           usersMap={usersMap}
           roomsMap={roomsMap}
           orgsMap={orgsMap}

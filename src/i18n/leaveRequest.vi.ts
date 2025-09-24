@@ -10,16 +10,16 @@ export const LT_STATUS: Record<LeaveType, string> = {
 };
 
 export const LT_UNIT: Record<LeaveUnit, string> = {
-    DAY : 'Ngày',
-    HALF_DAY : 'Nửa ngày',
-    HOUR : 'Giờ',
+    DAY: 'Ngày',
+    HALF_DAY: 'Nửa ngày',
+    HOUR: 'Giờ',
 };
 
 export const LR_STATUS: Record<LeaveStatus, string> = {
-    pending : 'Chờ duyệt',
-    approved : 'Đã duyệt',
-    rejected : 'Đã từ chối',
-    cancelled : 'Đã hủy',
+    pending: 'Chờ duyệt',
+    approved: 'Đã duyệt',
+    rejected: 'Đã từ chối',
+    cancelled: 'Đã hủy',
 };
 
 export const STATUS_OPTIONS_LT = (Object.keys(LT_STATUS) as LeaveType[]).map(v => ({ value: v, label: LT_STATUS[v] }));

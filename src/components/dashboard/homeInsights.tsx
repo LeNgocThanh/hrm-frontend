@@ -9,7 +9,7 @@ import type { MeetingRoom } from '@/types/room-meetings';
 import { getUsers } from '@/lib/api/users';
 import { getUserAssignmentsByUser } from '@/lib/api/user-assignments';
 
-type MeetingStatus = 'PENDING_APPROVAL'|'SCHEDULED'|'IN_PROGRESS'|'COMPLETED'|'CANCELLED'|'REJECTED';
+type MeetingStatus = 'PENDING_APPROVAL' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
 type Participant = { userId?: string; response?: string };
 type Meeting = {
   _id: string;
@@ -195,10 +195,10 @@ export default function HomeInsights() {
                             {m.status === 'IN_PROGRESS'
                               ? 'Đang diễn ra'
                               : m.status === 'SCHEDULED'
-                              ? 'Đã lên lịch'
-                              : m.status === 'COMPLETED'
-                              ? 'Đã kết thúc'
-                              : m.status}
+                                ? 'Đã lên lịch'
+                                : m.status === 'COMPLETED'
+                                  ? 'Đã kết thúc'
+                                  : m.status}
                           </span>
                         </li>
                       ))}

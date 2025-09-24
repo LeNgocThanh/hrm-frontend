@@ -155,13 +155,13 @@ export default function UserProfileForm() {
 
     try {
       const payload: CreateUserProfileDto | UpdateUserProfileDto = { ...profileForm };
-      
+
       if (isEditing) {
         await userProfileApi.updateUserProfile(selectedUserId, payload);
       } else {
         await userProfileApi.createUserProfile(payload as CreateUserProfileDto);
       }
-      
+
       setStatusMessage(`${isEditing ? 'Cập nhật' : 'Tạo'} hồ sơ thành công!`);
       setIsSuccess(true);
     } catch (error: any) {
@@ -220,7 +220,7 @@ export default function UserProfileForm() {
         {/* Personal Information */}
         <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Thông tin cá nhân</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-gray-700 text-sm font-semibold mb-2">
@@ -283,7 +283,7 @@ export default function UserProfileForm() {
         {/* Identity Information */}
         <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Thông tin giấy tờ</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-gray-700 text-sm font-semibold mb-2">
@@ -328,7 +328,7 @@ export default function UserProfileForm() {
         {/* Bank Information */}
         <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Thông tin ngân hàng</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-gray-700 text-sm font-semibold mb-2">
@@ -375,11 +375,10 @@ export default function UserProfileForm() {
         <button
           type="submit"
           disabled={isProcessing || !selectedUserId}
-          className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${
-            isProcessing || !selectedUserId
+          className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${isProcessing || !selectedUserId
               ? 'bg-indigo-400 cursor-not-allowed'
               : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
-          }`}
+            }`}
         >
           {isProcessing ? 'Đang xử lý...' : (isEditing ? 'Cập nhật Hồ sơ' : 'Tạo Hồ sơ')}
         </button>
@@ -388,11 +387,10 @@ export default function UserProfileForm() {
       {/* Status Message */}
       {statusMessage && (
         <div
-          className={`mt-6 p-4 rounded-lg text-center ${
-            isSuccess === true ? 'bg-green-100 text-green-800' :
-            isSuccess === false ? 'bg-red-100 text-red-800' :
-            'bg-blue-100 text-blue-800'
-          }`}
+          className={`mt-6 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
+              isSuccess === false ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+            }`}
         >
           <p className="font-medium">{statusMessage}</p>
         </div>
@@ -403,7 +401,7 @@ export default function UserProfileForm() {
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-800">
             <strong>Hồ sơ hiện tại:</strong> Được tạo {new Date(existingProfile.createdAt).toLocaleDateString('vi-VN')}
-            {existingProfile.updatedAt !== existingProfile.createdAt && 
+            {existingProfile.updatedAt !== existingProfile.createdAt &&
               `, cập nhật lần cuối ${new Date(existingProfile.updatedAt).toLocaleDateString('vi-VN')}`
             }
           </p>

@@ -37,7 +37,7 @@ export default function NoticeCard({
           const fi = await getFileInfo(item.coverImage);
           console.log('fi', fi);
           if (cancelled) return;
-          const url = fi?.path ? filePublicUrl(fi) : undefined;         
+          const url = fi?.path ? filePublicUrl(fi) : undefined;
           setCoverUrl(url || null);
           return;
         }
@@ -125,7 +125,7 @@ export default function NoticeCard({
       <div className="flex items-start gap-4">
         {coverUrl ? (
           <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-lg">
-            <img src={coverUrl} alt={item.title}  className="object-cover" />
+            <img src={coverUrl} alt={item.title} className="object-cover" />
           </div>
         ) : (
           <div className="h-24 w-36 shrink-0 rounded-lg bg-gray-100" />

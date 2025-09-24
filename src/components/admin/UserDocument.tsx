@@ -347,11 +347,10 @@ export default function UserDocumentCreationForm() {
             <button
                 onClick={handleCreateDocumentFlow}
                 disabled={isProcessing || !selectedFile || !selectedUserId || (docType === DocTypeEnum.OTHER && !otherDocTypeDescription.trim())}
-                className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${
-                    isProcessing || !selectedFile || !selectedUserId || (docType === DocTypeEnum.OTHER && !otherDocTypeDescription.trim())
+                className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${isProcessing || !selectedFile || !selectedUserId || (docType === DocTypeEnum.OTHER && !otherDocTypeDescription.trim())
                         ? 'bg-indigo-400 cursor-not-allowed'
                         : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
-                }`}
+                    }`}
             >
                 {isProcessing ? 'Đang xử lý...' : 'Tạo Tài liệu'}
             </button>
@@ -359,11 +358,10 @@ export default function UserDocumentCreationForm() {
             {/* Status Message */}
             {statusMessage && (
                 <div
-                    className={`mt-6 p-4 rounded-lg text-center ${
-                        isSuccess === true ? 'bg-green-100 text-green-800' :
-                        isSuccess === false ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                    }`}
+                    className={`mt-6 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
+                            isSuccess === false ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                        }`}
                 >
                     <p className="font-medium">{statusMessage}</p>
                 </div>

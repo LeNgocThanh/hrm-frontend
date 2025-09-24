@@ -7,11 +7,11 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
-        'Content-Type': 'application/json',        
+        'Content-Type': 'application/json',
         ...options.headers,
       },
       credentials: 'include', // Gửi cookie cùng với yêu cầu
@@ -65,5 +65,5 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(); 
+export const apiClient = new ApiClient();
 

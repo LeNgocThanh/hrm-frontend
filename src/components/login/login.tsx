@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function LoginPage() {
   const { login, isAuthenticated, loadingAuth } = useAuth();
   const router = useRouter();
-  
+
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -101,11 +101,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isProcessing}
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${
-              isProcessing
+            className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${isProcessing
                 ? 'bg-indigo-400 cursor-not-allowed'
                 : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
-            }`}
+              }`}
           >
             {isProcessing ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
@@ -114,11 +113,10 @@ export default function LoginPage() {
         {/* Status Message */}
         {statusMessage && (
           <div
-            className={`mt-6 p-4 rounded-lg text-center ${
-              isSuccess === true ? 'bg-green-100 text-green-800' :
-              isSuccess === false ? 'bg-red-100 text-red-800' :
-              'bg-blue-100 text-blue-800'
-            }`}
+            className={`mt-6 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
+                isSuccess === false ? 'bg-red-100 text-red-800' :
+                  'bg-blue-100 text-blue-800'
+              }`}
           >
             <p className="font-medium">{statusMessage}</p>
           </div>

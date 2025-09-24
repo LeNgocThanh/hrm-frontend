@@ -48,24 +48,24 @@ export async function uploadFile(
   const headers: HeadersInit = {}
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(UPLOAD_URL, { method: 'POST',credentials: 'include',headers, body: fd })
- const json: UploadResponse = await res.json()
-if (!res.ok) throw new Error((json as any)?.message || 'Upload failed')
+  const res = await fetch(UPLOAD_URL, { method: 'POST', credentials: 'include', headers, body: fd })
+  const json: UploadResponse = await res.json()
+  if (!res.ok) throw new Error((json as any)?.message || 'Upload failed')
 
-// ✅ KHÔNG dùng `as any` ở đây.
-// Type Guard 'id' in json sẽ hoạt động chính xác.
-if ('id' in json) {
-  // TypeScript hiểu `json` là kiểu { id, ... } ở đây
-  const r = normalizeOne(json)
-  if (!r) throw new Error('Invalid upload response')
-  return r
-} else {
-  // TypeScript hiểu `json` là kiểu { files, ... } ở đây
-  const arr = (json.files || json.data || json.result || json.uploaded || []) as any[]
-  const r = normalizeOne(arr[0])
-  if (!r) throw new Error('No file returned')
-  return r
-}
+  // ✅ KHÔNG dùng `as any` ở đây.
+  // Type Guard 'id' in json sẽ hoạt động chính xác.
+  if ('id' in json) {
+    // TypeScript hiểu `json` là kiểu { id, ... } ở đây
+    const r = normalizeOne(json)
+    if (!r) throw new Error('Invalid upload response')
+    return r
+  } else {
+    // TypeScript hiểu `json` là kiểu { files, ... } ở đây
+    const arr = (json.files || json.data || json.result || json.uploaded || []) as any[]
+    const r = normalizeOne(arr[0])
+    if (!r) throw new Error('No file returned')
+    return r
+  }
 }
 
 export async function uploadFiles(
@@ -103,11 +103,11 @@ export function getFileUrl(
   if (!file) return undefined;
 
   // 1) Ưu tiên publicUrl nếu backend có phát hành public
-//  const publicUrl = (file as any).publicUrl as string | undefined;
-//  if (publicUrl) return publicUrl;
+  //  const publicUrl = (file as any).publicUrl as string | undefined;
+  //  if (publicUrl) return publicUrl;
 
   // 2) Nếu có path -> build đúng router download ?path=...
-const path: string | undefined = file.path || file.id;
+  const path: string | undefined = file.path || file.id;
   if (!path) return undefined;
   if (/^https?:\/\//i.test(path)) return path;
 

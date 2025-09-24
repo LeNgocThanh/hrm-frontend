@@ -19,10 +19,10 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
   const url = buildUrl(path, opts.query);
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-   // ...(localStorage.getItem('accessToken') ? { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } : {}),
+    // ...(localStorage.getItem('accessToken') ? { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } : {}),
     ...(opts.headers || {}),
   };
-  const res = await fetch(url, { ...opts, headers,  credentials: 'include', cache: 'no-store' });
+  const res = await fetch(url, { ...opts, headers, credentials: 'include', cache: 'no-store' });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`${res.status} ${res.statusText} - ${text}`);

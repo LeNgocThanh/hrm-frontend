@@ -22,7 +22,7 @@ export default function UsersManagement() {
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [showDetailView, setShowDetailView] = useState(false);
   const [viewMode, setViewMode] = useState(false);
-  
+
   // Filter and sort states
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
@@ -58,7 +58,7 @@ export default function UsersManagement() {
 
     // Search by fullName
     if (searchTerm) {
-      filtered = filtered.filter(user => 
+      filtered = filtered.filter(user =>
         user.fullName.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -75,34 +75,34 @@ export default function UsersManagement() {
 
     // Sort
     if (sortField) {
-  filtered.sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
+      filtered.sort((a, b) => {
+        let aValue = a[sortField];
+        let bValue = b[sortField];
 
-    let comparisonValueA;
-    let comparisonValueB;
+        let comparisonValueA;
+        let comparisonValueB;
 
-    if (sortField === 'birthDay') {
-      comparisonValueA = aValue ? new Date(aValue).getTime() : 0;
-      comparisonValueB = bValue ? new Date(bValue).getTime() : 0;
-    } else {
-      comparisonValueA = aValue?.toLowerCase() || '';
-      comparisonValueB = bValue?.toLowerCase() || '';
+        if (sortField === 'birthDay') {
+          comparisonValueA = aValue ? new Date(aValue).getTime() : 0;
+          comparisonValueB = bValue ? new Date(bValue).getTime() : 0;
+        } else {
+          comparisonValueA = aValue?.toLowerCase() || '';
+          comparisonValueB = bValue?.toLowerCase() || '';
+        }
+
+        if (sortDirection === 'asc') {
+          if (typeof comparisonValueA === 'string' && typeof comparisonValueB === 'string') {
+            return comparisonValueA.localeCompare(comparisonValueB);
+          }
+          return comparisonValueA > comparisonValueB ? 1 : -1;
+        } else {
+          if (typeof comparisonValueA === 'string' && typeof comparisonValueB === 'string') {
+            return comparisonValueB.localeCompare(comparisonValueA);
+          }
+          return comparisonValueA < comparisonValueB ? 1 : -1;
+        }
+      });
     }
-
-    if (sortDirection === 'asc') {
-      if (typeof comparisonValueA === 'string' && typeof comparisonValueB === 'string') {
-        return comparisonValueA.localeCompare(comparisonValueB);
-      }
-      return comparisonValueA > comparisonValueB ? 1 : -1;
-    } else {
-      if (typeof comparisonValueA === 'string' && typeof comparisonValueB === 'string') {
-        return comparisonValueB.localeCompare(comparisonValueA);
-      }
-      return comparisonValueA < comparisonValueB ? 1 : -1;
-    }
-  });
-}
 
     setFilteredUsers(filtered);
   };
@@ -128,7 +128,7 @@ export default function UsersManagement() {
       setUsers(data as User[]);
       setError(null);
     } catch (err) {
-      
+
       setError('Không thể lấy dữ liệu nhân sự');
       console.error('Error fetching users:', err);
     } finally {
@@ -157,16 +157,16 @@ export default function UsersManagement() {
   };
 
   function normalizeEmptyToNull<T extends Record<string, any>>(obj: T): T {
-  const result: any = {};
-  for (const key in obj) {
-    if (obj[key] === "") {
-      result[key] = null;
-    } else {
-      result[key] = obj[key];
+    const result: any = {};
+    for (const key in obj) {
+      if (obj[key] === "") {
+        result[key] = null;
+      } else {
+        result[key] = obj[key];
+      }
     }
+    return result;
   }
-  return result;
-}
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,7 +226,7 @@ export default function UsersManagement() {
       gender: user.gender || '',
       details: user.details || '',
       email: user.email,
-      phone: user.phone || '',    
+      phone: user.phone || '',
       avatarUrl: user.avatarUrl || '',
       employeeStatus: user.employeeStatus
     });
@@ -242,7 +242,7 @@ export default function UsersManagement() {
       gender: user.gender || '',
       details: user.details || '',
       email: user.email,
-      phone: user.phone || '',    
+      phone: user.phone || '',
       avatarUrl: user.avatarUrl || '',
       employeeStatus: user.employeeStatus
     });
@@ -257,17 +257,17 @@ export default function UsersManagement() {
   };
 
   function hasAllManagePermission(userInfo: { scopedPermissions: { permissions: any; }; }) {
-  // Sử dụng optional chaining (?.) để tránh lỗi nếu các thuộc tính không tồn tại
-  const permissions = userInfo?.scopedPermissions?.permissions;
+    // Sử dụng optional chaining (?.) để tránh lỗi nếu các thuộc tính không tồn tại
+    const permissions = userInfo?.scopedPermissions?.permissions;
 
-  // Kiểm tra nếu permissions là một mảng và chứa "All:manage"
-  if (Array.isArray(permissions)) {
-    return permissions.includes("All:manage");
+    // Kiểm tra nếu permissions là một mảng và chứa "All:manage"
+    if (Array.isArray(permissions)) {
+      return permissions.includes("All:manage");
+    }
+
+    // Trả về false nếu permissions không phải là mảng hoặc không tồn tại
+    return false;
   }
-
-  // Trả về false nếu permissions không phải là mảng hoặc không tồn tại
-  return false;
-}
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -408,15 +408,14 @@ export default function UsersManagement() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Trạng thái</label>
-                      <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                        formData.employeeStatus === 'active' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${formData.employeeStatus === 'active'
+                          ? 'bg-green-100 text-green-800'
                           : formData.employeeStatus === 'inactive'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {formData.employeeStatus === 'active' ? 'Đang làm việc' : 
-                         formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                        {formData.employeeStatus === 'active' ? 'Đang làm việc' :
+                          formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}
                       </span>
                     </div>
                   </div>
@@ -442,9 +441,9 @@ export default function UsersManagement() {
                     <div>
                       <label className="text-sm font-medium text-gray-500">Avatar</label>
                       <div className="mt-2">
-                        <img 
-                          src={formData.avatarUrl} 
-                          alt="Avatar" 
+                        <img
+                          src={formData.avatarUrl}
+                          alt="Avatar"
                           className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -458,15 +457,15 @@ export default function UsersManagement() {
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={() => setViewMode(false)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Chỉnh sửa thông tin
                 </Button>
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={resetForm}
                   className="bg-gray-600 hover:bg-gray-700"
                 >
@@ -517,7 +516,7 @@ export default function UsersManagement() {
                   label="Phone"
                   value={formData.phone}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('phone', e.target.value)}
-                />              
+                />
                 <Input
                   label="Avatar URL"
                   value={formData.avatarUrl}
@@ -538,8 +537,8 @@ export default function UsersManagement() {
                 <Button type="submit" className="bg-green-600 hover:bg-green-700">
                   {editingUser ? 'Sửa' : 'Tạo mới'}
                 </Button>
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={resetForm}
                   className="bg-gray-600 hover:bg-gray-700"
                 >
@@ -614,7 +613,7 @@ export default function UsersManagement() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th 
+                <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('fullName')}
                 >
@@ -633,7 +632,7 @@ export default function UsersManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Số điện thoại
                 </th>
-                <th 
+                <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('birthDay')}
                 >
@@ -676,13 +675,12 @@ export default function UsersManagement() {
                     {user.gender || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.employeeStatus === 'active' 
-                        ? 'bg-green-100 text-green-800' 
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.employeeStatus === 'active'
+                        ? 'bg-green-100 text-green-800'
                         : user.employeeStatus === 'inactive'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
                       {user.employeeStatus}
                     </span>
                   </td>
@@ -733,7 +731,7 @@ export default function UsersManagement() {
                 ×
               </button>
             </div>
-            
+
             <div className="p-6 space-y-8">
               {/* Basic Information */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
@@ -773,34 +771,33 @@ export default function UsersManagement() {
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <label className="text-sm font-medium text-gray-500">Trạng thái</label>
-                      <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full mt-1 ${
-                        formData.employeeStatus === 'active' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full mt-1 ${formData.employeeStatus === 'active'
+                          ? 'bg-green-100 text-green-800'
                           : formData.employeeStatus === 'inactive'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {formData.employeeStatus === 'active' ? 'Đang làm việc' : 
-                         formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                        {formData.employeeStatus === 'active' ? 'Đang làm việc' :
+                          formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}
                       </span>
                     </div>
                   </div>
                 </div>
-                
+
                 {formData.details && (
                   <div className="mt-4 bg-white p-4 rounded-lg shadow-sm">
                     <label className="text-sm font-medium text-gray-500">Chi tiết</label>
                     <p className="text-gray-900 mt-1">{formData.details}</p>
                   </div>
                 )}
-                
+
                 {formData.avatarUrl && (
                   <div className="mt-4 bg-white p-4 rounded-lg shadow-sm">
                     <label className="text-sm font-medium text-gray-500">Avatar</label>
                     <div className="mt-2">
-                      <img 
-                        src={formData.avatarUrl} 
-                        alt="Avatar" 
+                      <img
+                        src={formData.avatarUrl}
+                        alt="Avatar"
                         className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-md"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -874,7 +871,7 @@ export default function UsersManagement() {
       )}
     </div>
   );
-} 
+}
 
 
 

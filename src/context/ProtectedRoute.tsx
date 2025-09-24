@@ -28,10 +28,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
 
       // Nếu đã xác thực, kiểm tra quyền (nếu có yêu cầu vai trò)
       if (requiredRoles && requiredRoles.length > 0) {
-        
+
         const userPermissions: string[] = userInfo?.scopedPermissions
-    ? userInfo.scopedPermissions.flatMap((s: any) => s.permissions)
-    : [];
+          ? userInfo.scopedPermissions.flatMap((s: any) => s.permissions)
+          : [];
         const hasRequiredPermission = requiredRoles.some(role => userPermissions.includes(role));
 
         if (!hasRequiredPermission) {

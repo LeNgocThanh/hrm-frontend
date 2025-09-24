@@ -8,7 +8,7 @@ export const VI_STATUS: Record<NoticeStatus, string> = {
 
 export const VI_VISIBILITY: Record<NoticeVisibility, string> = {
   public: 'Công khai',
-  internal: 'Nội bộ', 
+  internal: 'Nội bộ',
 };
 
 // Tiện để render <option> / checkbox
