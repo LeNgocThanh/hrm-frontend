@@ -141,18 +141,18 @@ export default function PermissionsManagement() {
                   module
                 </label>
                 <select
-  value={formData.module}
-  onChange={(e) => setFormData({ ...formData, module: e.target.value as Module })}
-  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-  required
->
-  <option value="">Chọn tài nguyên...</option>
-  {Object.values(Module).map((m) => (
-    <option key={m} value={m}>
-      {m}
-    </option>
-  ))}
-</select>
+                  value={formData.module}
+                  onChange={(e) => setFormData({ ...formData, module: e.target.value as Module })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Chọn tài nguyên...</option>
+                  {Object.values(Module).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -161,19 +161,19 @@ export default function PermissionsManagement() {
                   Action
                 </label>
                 <select
-  value={formData.action}
-  onChange={(e) => setFormData({ ...formData, action: e.target.value as Action })}
-  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-  required
->
-  <option value="">Chọn hành động...</option>
-  {Object.values(Action).map((m) => (
-    <option key={m} value={m}>
-      {m}
-    </option>
-  ))}
-</select>
-              </div>              
+                  value={formData.action}
+                  onChange={(e) => setFormData({ ...formData, action: e.target.value as Action })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Chọn hành động...</option>
+                  {Object.values(Action).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -218,7 +218,7 @@ export default function PermissionsManagement() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Action
-                </th>               
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Hành động
                 </th>
@@ -235,7 +235,7 @@ export default function PermissionsManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {permission.action}
-                  </td>                  
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
                       onClick={() => handleEdit(permission)}

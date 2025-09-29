@@ -50,7 +50,7 @@ export default function OrganizationsManagement() {
       const data = await apiClient.get<Organization[]>('/organizations');
       setOrganizations(data);
       buildTree(data);
-    } catch (err) {      
+    } catch (err) {
       setError('Không thể tải danh sách tổ chức');
     } finally {
       setLoading(false);
@@ -106,7 +106,7 @@ export default function OrganizationsManagement() {
       }
       await fetchOrganizations();
       resetForm();
-    } catch (err) {      
+    } catch (err) {
       setError('Có lỗi xảy ra khi lưu tổ chức');
     }
   };
@@ -385,8 +385,8 @@ export default function OrganizationsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${org.isActive === true
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}>
                         {org.isActive === true ? 'Hoạt động' : 'Không hoạt động'}
                       </span>

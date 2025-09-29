@@ -28,13 +28,13 @@ const buttonDangerStyle: React.CSSProperties = {
 const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
-  background: '#fff',   
+  background: '#fff',
 };
 const thStyle: React.CSSProperties = {
   background: '#f5f5f5',
   fontWeight: 700,
   padding: '10px',
-  border: '1px solid #ddd',  
+  border: '1px solid #ddd',
 };
 const tdStyle: React.CSSProperties = {
   padding: '10px',

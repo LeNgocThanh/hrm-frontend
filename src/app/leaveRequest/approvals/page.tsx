@@ -107,7 +107,7 @@ export default function LeaveApprovalsPage() {
   const swrOpts = { revalidateOnFocus: false, dedupingInterval: 30_000 };
 
   // ====== Data
-  const { data: users } = useSWR<UserLite[]>('/users', p => fetcher(p), swrOpts);
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', p => fetcher(p), swrOpts);
   const key = ['/leave-requests', from, to, status, userId, leaveType, unit, q] as const;
 
   const { data: leaves } = useSWR<LeaveRequest[]>(

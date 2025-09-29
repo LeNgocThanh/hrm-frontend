@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import { CompensationType_STATUS, OverTimeKind_STATUS } from '@/i18n/overTime.vi';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 type ObjectId = string;
@@ -50,7 +51,7 @@ function toISO(date: string, hm: string) {
 function fmtDT(iso: string) { try { return new Date(iso).toLocaleString(); } catch { return iso; } }
 
 export default function OvertimeCreatePage() {
-  const { data: users } = useSWR<UserLite[]>('/users', p=>fetcher(p), { revalidateOnFocus: false });
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', p=>fetcher(p), { revalidateOnFocus: false });
   const todayStr = useMemo(()=> new Date().toISOString().slice(0,10), []);
   const [userId, setUserId] = useState<string>('');
   const [compensation, setCompensation] = useState<CompensationType>(CompensationType.PAY);
@@ -140,7 +141,7 @@ export default function OvertimeCreatePage() {
 
     const requester = (users||[]).find(u=>String(u._id)===String(payload.userId))?.fullName || String(payload.userId);
     const segRows = (payload.segments as any[]).map((s,i)=>{
-      return `<tr><td>${i+1}</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${s.kind||''}</td><td>${s.compensationOverride||''}</td></tr>`;
+      return `<tr><td>${i+1}</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${OverTimeKind_STATUS[s.kind]||''}</td><td>${CompensationType_STATUS[s.compensationOverride]||''}</td></tr>`;
     }).join('');
 
     const idLine = (useCreated && (payload as any)._id) ? `<div><b>Mã đơn:</b> ${(payload as any)._id}</div>` : '';
@@ -167,12 +168,12 @@ export default function OvertimeCreatePage() {
       </div>
       <div class="card">
         <div><b>Người tăng ca:</b> ${requester}</div>
-        <div><b>Hình thức bù:</b> ${payload.compensation}</div>
+        <div><b>Hình thức tính công:</b> ${CompensationType_STATUS[payload.compensation]}</div>
         ${payload.reason ? `<div><b>Lý do:</b> ${payload.reason}</div>`:''}
       </div>
       <div class="card">
         <div style="font-weight:600;margin-bottom:8px;">Các khoảng tăng ca</div>
-        <table><thead><tr><th>#</th><th>Thời gian</th><th>Kind</th><th>Comp Override</th></tr></thead>
+        <table><thead><tr><th>#</th><th>Thời gian</th><th>Loại tăng ca</th><th>Theo đơn</th></tr></thead>
         <tbody>${segRows || `<tr><td colspan="4" style="text-align:center;color:#64748b;">(Không có)</td></tr>`}</tbody></table>
       </div>
       <script>setTimeout(()=>window.print(), 50)</script>
@@ -199,9 +200,9 @@ export default function OvertimeCreatePage() {
           </select>
         </Field>
 
-        <Field label="Hình thức bù">
+        <Field label="Hình thức tính công">
           <select className="h-10 rounded-md border px-3 text-sm" value={compensation} onChange={e=>setCompensation(e.target.value as CompensationType)}>
-            {Object.values(CompensationType).map(v=><option key={v} value={v}>{v}</option>)}
+            {Object.values(CompensationType).map(v=><option key={v} value={v}>{CompensationType_STATUS[v]}</option>)}
           </select>
         </Field>
 
@@ -225,16 +226,16 @@ export default function OvertimeCreatePage() {
                   <Field label="Đến giờ">
                     <input type="time" className="h-10 w-full rounded-md border px-3 text-sm" value={s.endTime} onChange={e=>patchSeg(i,{endTime:e.target.value})}/>
                   </Field>
-                  <Field label="Kind (tuỳ chọn)">
+                  <Field label="Loại tăng ca (tuỳ chọn)">
                     <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.kind||''} onChange={e=>patchSeg(i,{kind: e.target.value as OvertimeKind || undefined})}>
                       <option value="">(Auto)</option>
-                      {Object.values(OvertimeKind).map(k=><option key={k} value={k}>{k}</option>)}
+                      {Object.values(OvertimeKind).map(k=><option key={k} value={k}>{OverTimeKind_STATUS[k]}</option>)}
                     </select>
                   </Field>
                   <Field label="Comp Override">
                     <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.compensationOverride||''} onChange={e=>patchSeg(i,{compensationOverride: e.target.value as CompensationType || undefined})}>
                       <option value="">(Theo đơn)</option>
-                      {Object.values(CompensationType).map(k=><option key={k} value={k}>{k}</option>)}
+                      {Object.values(CompensationType).map(k=><option key={k} value={k}>{CompensationType_STATUS[k]}</option>)}
                     </select>
                   </Field>
                 </div>

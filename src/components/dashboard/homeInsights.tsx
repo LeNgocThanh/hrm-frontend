@@ -192,11 +192,11 @@ export default function HomeInsights() {
                             </span>
                           </div>
                           <span className="rounded-full border px-2 py-0.5 text-xs text-gray-600">
-                            {m.status === 'IN_PROGRESS'
+                            {(m.status === 'IN_PROGRESS' || (m.status === 'SCHEDULED' && (new Date(m.startAt) <= new Date()) && (new Date(m.endAt) >= new Date())))
                               ? 'Đang diễn ra'
                               : m.status === 'SCHEDULED'
                                 ? 'Đã lên lịch'
-                                : m.status === 'COMPLETED'
+                                : (m.status === 'COMPLETED' || (new Date(m.endAt) <= new Date()))
                                   ? 'Đã kết thúc'
                                   : m.status}
                           </span>

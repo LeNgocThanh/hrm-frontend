@@ -66,7 +66,7 @@ function fmtDT(d: string) {
 
 export default function CreateLeavePage() {
   // ====== load users ======
-  const { data: users } = useSWR<UserLite[]>('/users', (p) => fetcher(p), { revalidateOnFocus: false });
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', (p) => fetcher(p), { revalidateOnFocus: false });
   const userMap = useMemo(()=> new Map((users||[]).map(u=>[String(u._id), u])), [users]);
 
   // ====== state form ======

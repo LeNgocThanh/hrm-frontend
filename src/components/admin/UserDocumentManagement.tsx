@@ -387,8 +387,8 @@ const UserDocumentManagement: React.FC<Props> = ({ userId, viewMode = false }) =
                             type="submit"
                             disabled={isProcessing || !selectedFile || (docType === DocTypeEnum.OTHER && !otherDocTypeDescription.trim())}
                             className={`mt-4 w-full py-2 px-4 rounded-lg font-medium text-white transition duration-300 ${isProcessing || !selectedFile || (docType === DocTypeEnum.OTHER && !otherDocTypeDescription.trim())
-                                    ? 'bg-indigo-400 cursor-not-allowed'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                                ? 'bg-indigo-400 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                                 }`}
                         >
                             {isProcessing ? 'Đang xử lý...' : 'Thêm Tài liệu'}
@@ -401,8 +401,8 @@ const UserDocumentManagement: React.FC<Props> = ({ userId, viewMode = false }) =
             {statusMessage && (
                 <div
                     className={`mb-4 p-3 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
-                            isSuccess === false ? 'bg-red-100 text-red-800' :
-                                'bg-blue-100 text-blue-800'
+                        isSuccess === false ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
                         }`}
                 >
                     <p className="text-sm font-medium">{statusMessage}</p>

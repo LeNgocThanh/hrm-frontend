@@ -160,7 +160,7 @@ export default function LeaveOverviewReportsPage() {
   }, [granularity]);
 
   const swrOpts = { revalidateOnFocus: false, dedupingInterval: 30_000 };
-  const { data: users } = useSWR<UserLite[]>('/users', (p) => fetcher(p), swrOpts);
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', (p) => fetcher(p), swrOpts);
   const userMap = useMemo(() => new Map((Array.isArray(users) ? users : []).map(u => [String(u._id), u])), [users]);
 
   // Fetch approved

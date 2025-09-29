@@ -370,10 +370,10 @@ export default function UsersByOrganizations() {
 
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 text-xs rounded-full ${user.employeeStatus === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : user.employeeStatus === 'inactive'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : user.employeeStatus === 'inactive'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
                         }`}>
                         {user.employeeStatus}
                       </span>

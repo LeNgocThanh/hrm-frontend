@@ -326,8 +326,8 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
                 type="submit"
                 disabled={isProcessing}
                 className={`px-6 py-2 rounded-md font-medium transition-colors ${isProcessing
-                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
               >
                 {isProcessing
@@ -342,8 +342,8 @@ const UserProfileManagement: React.FC<Props> = ({ userId, viewMode = false }) =>
           {statusMessage && (
             <div
               className={`mt-4 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
-                  isSuccess === false ? 'bg-red-100 text-red-800' :
-                    'bg-blue-100 text-blue-800'
+                isSuccess === false ? 'bg-red-100 text-red-800' :
+                  'bg-blue-100 text-blue-800'
                 }`}
             >
               <p className="font-medium">{statusMessage}</p>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import useSWR, { mutate } from 'swr';
+import { CompensationType_STATUS, OverTimeKind_STATUS, Status_STATUS, VI_CompensationType, VI_OverTimeKind, VI_Status } from '@/i18n/overTime.vi';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 type ObjectId = string;
@@ -62,7 +63,7 @@ function resolveUser(u: any, map: Map<string,UserLite>) {
 }
 
 export default function OvertimeApprovalsPage() {
-  const { data: users } = useSWR<UserLite[]>('/users', p=>fetcher(p), { revalidateOnFocus:false });
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', p=>fetcher(p), { revalidateOnFocus:false });
   const userMap = useMemo(()=>new Map((users||[]).map(u=>[String(u._id),u])), [users]);
 
   const [status, setStatus] = useState<Status>('pending');
@@ -97,7 +98,7 @@ export default function OvertimeApprovalsPage() {
         <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6">
           <Field label="Trạng thái">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={status} onChange={e=>setStatus(e.target.value as Status)}>
-              {(['pending','approved','rejected','cancelled'] as Status[]).map(s=><option key={s} value={s}>{s}</option>)}
+              {(['pending','approved','rejected','cancelled'] as Status[]).map(s=><option key={s} value={s}>{Status_STATUS[s]}</option>)}
             </select>
           </Field>
           <Field label="Người">
@@ -109,13 +110,13 @@ export default function OvertimeApprovalsPage() {
           <Field label="Bù">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={comp} onChange={e=>setComp(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(CompensationType).map(v=><option key={v} value={v}>{v}</option>)}
+              {Object.values(CompensationType).map(v=><option key={v} value={v}>{CompensationType_STATUS[v]}</option>)}
             </select>
           </Field>
           <Field label="Kind">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={kind} onChange={e=>setKind(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(OvertimeKind).map(v=><option key={v} value={v}>{v}</option>)}
+              {Object.values(OvertimeKind).map(v=><option key={v} value={v}>{OverTimeKind_STATUS[v]}</option>)}
             </select>
           </Field>
         </div>
@@ -130,7 +131,7 @@ export default function OvertimeApprovalsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{name}</div>
-                  <div className="text-xs text-slate-600">Bù: <b>{String(ot.compensation)}</b> · Trạng thái: <b>{String(ot.status)}</b></div>
+                  <div className="text-xs text-slate-600">Bù: <b>{VI_CompensationType.find(option => option.value === String(ot.compensation))?.label}</b> · Trạng thái: <b>{VI_Status.find(option => option.value === String(ot.status))?.label}</b></div>
                   {!!ot.reason && <div className="mt-1 text-xs text-slate-700">Lý do: {ot.reason}</div>}
                 </div>
                 <div className="text-right">
@@ -145,7 +146,7 @@ export default function OvertimeApprovalsPage() {
                   {(ot.segments||[]).map((s,i)=>(
                     <div key={i} className="grid items-center gap-2 md:grid-cols-[minmax(220px,1fr)_auto_auto]">
                       <div className="text-sm">{fmtDT(s.startAt)} → {fmtDT(s.endAt)}
-                        <div className="text-[11px] text-slate-500">Kind: {s.kind||'(auto)'} · Comp: {s.compensationOverride||'(theo đơn)'}</div>
+                        <div className="text-[11px] text-slate-500">Loại: {VI_OverTimeKind.find(option => option.value === s.kind)?.label ||'(auto)'} · Comp: {VI_CompensationType.find(option => option.value === s.compensationOverride)?.label ||'(theo đơn)'}</div>
                       </div>
                       <div className="text-right text-sm tabular-nums">{Math.round(calcHours(s)*100)/100} h</div>
                       <span className="justify-self-end rounded-full bg-slate-200 px-2 py-0.5 text-[11px]">OT</span>

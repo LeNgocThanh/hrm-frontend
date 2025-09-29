@@ -409,10 +409,10 @@ export default function UsersManagement() {
                     <div>
                       <label className="text-sm font-medium text-gray-500">Trạng thái</label>
                       <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${formData.employeeStatus === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : formData.employeeStatus === 'inactive'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : formData.employeeStatus === 'inactive'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
                         }`}>
                         {formData.employeeStatus === 'active' ? 'Đang làm việc' :
                           formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}
@@ -676,10 +676,10 @@ export default function UsersManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.employeeStatus === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : user.employeeStatus === 'inactive'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                      ? 'bg-green-100 text-green-800'
+                      : user.employeeStatus === 'inactive'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
                       }`}>
                       {user.employeeStatus}
                     </span>
@@ -772,10 +772,10 @@ export default function UsersManagement() {
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <label className="text-sm font-medium text-gray-500">Trạng thái</label>
                       <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full mt-1 ${formData.employeeStatus === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : formData.employeeStatus === 'inactive'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : formData.employeeStatus === 'inactive'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
                         }`}>
                         {formData.employeeStatus === 'active' ? 'Đang làm việc' :
                           formData.employeeStatus === 'inactive' ? 'Tạm nghỉ' : 'Đã nghỉ việc'}

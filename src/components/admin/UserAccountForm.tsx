@@ -239,11 +239,10 @@ export default function UserAccountForm() {
                 onChange={(e) => handleInputChange('username', e.target.value)}
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Nhập tên đăng nhập"
-                required
-                disabled={isEditing} // Không cho phép chỉnh sửa username sau khi tạo
+                required               
               />
               {isEditing && (
-                <p className="text-sm text-gray-500 mt-1">Tên đăng nhập không thể thay đổi sau khi tạo.</p>
+                <p className="text-sm text-gray-500 mt-1">Tên đăng nhập không nên thay đổi sau khi tạo.</p>
               )}
             </div>
 
@@ -284,8 +283,8 @@ export default function UserAccountForm() {
           type="submit"
           disabled={isProcessing || !selectedUserId || (isEditing && !existingAccount) || (!isEditing && (!accountForm.username || !accountForm.password))}
           className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition duration-300 ease-in-out ${isProcessing || !selectedUserId || (isEditing && !existingAccount) || (!isEditing && (!accountForm.username || !accountForm.password))
-              ? 'bg-indigo-400 cursor-not-allowed'
-              : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
+            ? 'bg-indigo-400 cursor-not-allowed'
+            : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50'
             }`}
         >
           {isProcessing ? 'Đang xử lý...' : (isEditing ? 'Cập nhật Tài khoản' : 'Tạo Tài khoản')}
@@ -296,8 +295,8 @@ export default function UserAccountForm() {
       {statusMessage && (
         <div
           className={`mt-6 p-4 rounded-lg text-center ${isSuccess === true ? 'bg-green-100 text-green-800' :
-              isSuccess === false ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
+            isSuccess === false ? 'bg-red-100 text-red-800' :
+              'bg-blue-100 text-blue-800'
             }`}
         >
           <p className="font-medium">{statusMessage}</p>
