@@ -50,7 +50,7 @@ export default function OrganizationsManagement() {
       const data = await apiClient.get<Organization[]>('/organizations');
       setOrganizations(data);
       buildTree(data);
-    } catch (err) {
+    } catch (err) {      
       setError('Không thể tải danh sách tổ chức');
     } finally {
       setLoading(false);
@@ -106,7 +106,7 @@ export default function OrganizationsManagement() {
       }
       await fetchOrganizations();
       resetForm();
-    } catch (err) {
+    } catch (err) {      
       setError('Có lỗi xảy ra khi lưu tổ chức');
     }
   };

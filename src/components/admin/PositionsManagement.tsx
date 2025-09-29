@@ -28,17 +28,19 @@ const buttonDangerStyle: React.CSSProperties = {
 const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
-  background: '#fff',
+  background: '#fff',   
 };
 const thStyle: React.CSSProperties = {
   background: '#f5f5f5',
   fontWeight: 700,
   padding: '10px',
-  border: '1px solid #ddd',
+  border: '1px solid #ddd',  
 };
 const tdStyle: React.CSSProperties = {
   padding: '10px',
   border: '1px solid #ddd',
+  justifyContent: 'center',
+  alignItems: 'center',
 };
 
 const PositionsManagement: React.FC = () => {
@@ -87,11 +89,11 @@ const PositionsManagement: React.FC = () => {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
-      <h2 style={{ marginBottom: 16 }}>Quản lý Positions</h2>
+      <h2 style={{ marginBottom: 16 }}>Quản lý Chức danh</h2>
       <form onSubmit={handleSubmit} style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <input
           style={inputStyle}
-          placeholder="Tên vị trí"
+          placeholder="Tên chức danh"
           value={form.name || ''}
           onChange={e => setForm({ ...form, name: e.target.value })}
           required
@@ -123,7 +125,7 @@ const PositionsManagement: React.FC = () => {
       <table style={tableStyle}>
         <thead>
           <tr>
-            <th style={thStyle}>Tên vị trí</th>
+            <th style={thStyle}>Tên chức danh</th>
             <th style={thStyle}>Mô tả</th>
             <th style={thStyle}>Cấp bậc</th>
             <th style={thStyle}>Hoạt động</th>

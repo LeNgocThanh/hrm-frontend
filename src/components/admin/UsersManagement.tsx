@@ -124,7 +124,7 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getUsers();
+      const data = await apiClient.getUsersByOrganizations();
       setUsers(data as User[]);
       setError(null);
     } catch (err) {

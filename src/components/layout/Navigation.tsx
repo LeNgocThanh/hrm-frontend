@@ -33,7 +33,7 @@ const navigationItems = [
       { name: "Tổng quan nghỉ phép", href: "/leaveRequest/reports", icon: "📊📝" },
       { name: "Đơn xin nghỉ phép", href: "/leaveRequest/create", icon: "🛠️📝" },
       { name: "Duyệt đơn nghỉ phép", href: "/leaveRequest/approvals", icon: "🛠️📝" },
-      { name: "Tổng quan tăng ca", href: "/overTime/reports", icon: "📊📝" },
+      { name: "Tổng quan tăng ca", href: "/overTime/overView", icon: "📊📝" },
       { name: "Đơn xin tăng ca", href: "/overTime/create", icon: "🛠️📝" },
       { name: "Duyệt đơn tăng ca", href: "/overTime/approvals", icon: "🛠️📝" },
     ],

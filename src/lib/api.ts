@@ -52,6 +52,10 @@ class ApiClient {
     return this.get('/users');
   }
 
+  async getUsersByOrganizations() {
+    return this.get('/users/by-organization');
+  }
+
   async createUser(data: any) {
     return this.post('/users', data);
   }

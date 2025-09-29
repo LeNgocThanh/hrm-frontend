@@ -4,6 +4,8 @@ export enum Module {
   All = 'All',
   Meeting = 'Meeting',
   Notice = 'Notice',
+  LeaveRequest = 'LeaveRequest',
+  OverTime = 'OverTime',
 }
 
 export interface Permission {
@@ -23,11 +25,11 @@ export enum Action {
     UPDATE  = 'update',
     DELETE  = 'delete',
     APPROVE = 'approve',
-    REJECT  = 'reject',
-    EXPORT  = 'export',
+   // REJECT  = 'reject',
+   // EXPORT  = 'export',
     VIEWOWNER = 'viewOwner',
     UPDATEOWNER = 'updateOwner',
-    ASSIGN  = 'assign',
+   // ASSIGN  = 'assign',
     MANAGE  = 'manage',
     VIEWALL = 'viewAll',
   }
