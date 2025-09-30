@@ -109,7 +109,7 @@ export default function Client({ rooms }: Props) {
     setChairId('');
     setParticipantId('');
     setExternalOnly(false);
-    setStatusSet(new Set<MeetingStatus>([MeetingStatus.SCHEDULED, MeetingStatus.IN_PROGRESS]));
+    setStatusSet(new Set<MeetingStatus>([MeetingStatus.SCHEDULED, MeetingStatus.IN_PROGRESS, MeetingStatus.COMPLETED]));
     setSearch('');
   }
 

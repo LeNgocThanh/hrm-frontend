@@ -46,6 +46,7 @@ export default function RegistrationDetails({
       await api(`/meetings/${meeting._id}/approve`, {
         method: 'POST',
         body: JSON.stringify({ decision }),
+        credentials: 'include'
       });
       router.refresh();
       onClose();

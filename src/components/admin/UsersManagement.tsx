@@ -9,6 +9,7 @@ import Select from '../ui/Select';
 import UserAssignments from './UserAssignments';
 import UserProfileManagement from './UserProfileManagement';
 import UserDocumentManagement from './UserDocumentManagement';
+import { EDUCATION_LEVELS_VI, EDUCATION_LEVELS_OPTIONS, WORK_TYPE_OPTIONS, workTypeOptions } from "@/i18n/user.vi"
 
 export default function UsersManagement() {
   const [users, setUsers] = useState<User[]>([]);
