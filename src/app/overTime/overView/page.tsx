@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
+import { OverTimeKind_STATUS, CompensationType_STATUS, Status_STATUS, VI_CompensationType, VI_OverTimeKind, VI_Status } from '@/i18n/overTime.vi';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 type ObjectId = string;
@@ -177,13 +178,13 @@ export default function OvertimeReportsOverview() {
           <Field label="Bù">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={comp} onChange={e=>setComp(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(CompensationType).map(v=><option key={v} value={v}>{v}</option>)}
+              {Object.values(CompensationType).map(v=><option key={v} value={v}>{CompensationType_STATUS[v]}</option>)}
             </select>
           </Field>
           <Field label="Kind">
             <select className="h-10 w-full rounded-md border px-3 text-sm" value={kind} onChange={e=>setKind(e.target.value)}>
               <option value="">Tất cả</option>
-              {Object.values(OvertimeKind).map(v=><option key={v} value={v}>{v}</option>)}
+              {Object.values(OvertimeKind).map(v=><option key={v} value={v}>{OverTimeKind_STATUS[v]}</option>)}
             </select>
           </Field>
         </div>
@@ -208,8 +209,8 @@ export default function OvertimeReportsOverview() {
                   <th className="border-b p-2">Ngày</th>
                   <th className="border-b p-2">Người</th>
                   <th className="border-b p-2">Khoảng thời gian</th>
-                  <th className="border-b p-2">Kind</th>
-                  <th className="border-b p-2">Comp</th>
+                  <th className="border-b p-2">Loại công</th>
+                  <th className="border-b p-2">Cách</th>
                   <th className="border-b p-2 text-right">Giờ</th>
                 </tr>
               </thead>
@@ -219,8 +220,8 @@ export default function OvertimeReportsOverview() {
                     <td className="border-b p-2 whitespace-nowrap">{d.dateKey}</td>
                     <td className="border-b p-2 whitespace-nowrap">{d.userName}</td>
                     <td className="border-b p-2">{d.timeText}</td>
-                    <td className="border-b p-2 whitespace-nowrap">{d.kind||'(auto)'}</td>
-                    <td className="border-b p-2 whitespace-nowrap">{d.comp}</td>
+                    <td className="border-b p-2 whitespace-nowrap">{VI_OverTimeKind.find(option => option.value === d.kind)?.label ||'(auto)'}</td>
+                    <td className="border-b p-2 whitespace-nowrap">{VI_CompensationType.find(option => option.value === d.comp)?.label}</td>
                     <td className="border-b p-2 text-right tabular-nums">{Math.round(d.hours*100)/100}</td>
                   </tr>
                 ))}

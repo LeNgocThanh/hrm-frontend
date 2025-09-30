@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { STATUS_OPTIONS_LT, LT_STATUS, LT_UNIT } from '@/i18n/leaveRequest.vi';
+import { STATUS_OPTIONS_LT, LT_STATUS, LT_UNIT, UNIT_OPTIONS_LT } from '@/i18n/leaveRequest.vi';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
@@ -416,10 +416,10 @@ export default function LeaveOverviewReportsPage() {
                   <tr key={row.id} className="text-sm">
                     <td className="border-b p-2 whitespace-nowrap">{row.dateKey}</td>
                     <td className="border-b p-2 whitespace-nowrap">{row.userName}</td>
-                    <td className="border-b p-2 whitespace-nowrap">{row.unit}</td>
+                    <td className="border-b p-2 whitespace-nowrap">{UNIT_OPTIONS_LT.find(option => option.value === row.unit)?.label}</td>
                     <td className="border-b p-2">{row.timeText}</td>
                     <td className="border-b p-2 text-right tabular-nums">{Math.round(row.hours * 100) / 100}</td>
-                    <td className="border-b p-2 whitespace-nowrap">{row.leaveType}</td>
+                    <td className="border-b p-2 whitespace-nowrap">{STATUS_OPTIONS_LT.find(option => option.value === row.leaveType)?.label}</td>
                   </tr>
                 ))}
               </tbody>

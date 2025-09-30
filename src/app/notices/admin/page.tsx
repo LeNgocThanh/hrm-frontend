@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   adminListNotices,
@@ -11,10 +11,11 @@ import {
   type NoticeStatus,
   type NoticeVisibility,
 } from '@/lib/api/notices';
-import { useMutation, useQuery, useQueryClient, keepPreviousData  } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import NoticeForm from '@/components/notice/NoticeAdminForm'; // form hiện có của anh/chị
 import { VI_STATUS, VI_VISIBILITY, STATUS_OPTIONS_VI, VIS_OPTIONS_VI, VI_MISC } from '@/i18n/notice.vi';
+import { useRouter } from 'next/navigation';
 
 const allStatuses: NoticeStatus[] = ['draft', 'published', 'archived'];
 const allVis: NoticeVisibility[] = ['public', 'internal'];
@@ -31,6 +32,45 @@ export default function AdminNoticesPage() {
   const [tags, setTags] = useState<string>('');
   const [page, setPage] = useState(1);
   const limit = 12;
+  const router = useRouter();
+  useEffect(() => {
+    const userInfo = localStorage.getItem("userInfo");
+
+    if (userInfo) {
+      const parsed = JSON.parse(userInfo);
+
+      // List quyền cần có) ít nhất một
+      const requiredPermissions = ["Notice:manage", "Notice:create", "All:manage", "Notice:update"];
+
+      // Flatten quyền từ groupedPermissions
+      interface GroupedPermissions {
+        [module: string]: string[];
+      }
+
+      interface ScopedPermission {
+        groupedPermissions?: GroupedPermissions;
+      }
+
+      interface UserInfo {
+        scopedPermissions?: ScopedPermission[];
+      }
+
+      const permissions = (parsed.scopedPermissions || [] as ScopedPermission[])
+        .flatMap((org: ScopedPermission) =>
+          Object.entries(org.groupedPermissions || {} as GroupedPermissions)
+            .flatMap(([module, actions]: [string, string[]]) => actions.map((action: string) => `${module}:${action}`))
+        );
+
+      // Check xem có giao nhau không
+      const hasPermission = requiredPermissions.some(r => permissions.includes(r));
+
+      if (!hasPermission) {
+        router.push("/unauthorized"); // về trang chủ
+      }
+    } else {
+      router.push("/");; // chưa login thì về trang chủ
+    }
+  }, []);
 
   const params = useMemo(
     () => ({
@@ -120,33 +160,33 @@ export default function AdminNoticesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">{VI_MISC.status}:</span>
           {STATUS_OPTIONS_VI.map(o => (
-  <label key={o.value} className="flex items-center gap-1 text-sm">
-    <input
-      type="checkbox"
-      checked={status.includes(o.value)}
-      onChange={(e) =>
-        setStatus(prev => e.target.checked ? [...prev, o.value] : prev.filter(x => x !== o.value))
-      }
-    />
-    {o.label}
-  </label>
-))}
+            <label key={o.value} className="flex items-center gap-1 text-sm">
+              <input
+                type="checkbox"
+                checked={status.includes(o.value)}
+                onChange={(e) =>
+                  setStatus(prev => e.target.checked ? [...prev, o.value] : prev.filter(x => x !== o.value))
+                }
+              />
+              {o.label}
+            </label>
+          ))}
 
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">{VI_MISC.visibility}:</span>
-         {VIS_OPTIONS_VI.map(o => (
-  <label key={o.value} className="flex items-center gap-1 text-sm">
-    <input
-      type="checkbox"
-      checked={visibility.includes(o.value)}
-      onChange={(e) =>
-        setVisibility(prev => e.target.checked ? [...prev, o.value] : prev.filter(x => x !== o.value))
-      }
-    />
-    {o.label}
-  </label>
-))}
+          {VIS_OPTIONS_VI.map(o => (
+            <label key={o.value} className="flex items-center gap-1 text-sm">
+              <input
+                type="checkbox"
+                checked={visibility.includes(o.value)}
+                onChange={(e) =>
+                  setVisibility(prev => e.target.checked ? [...prev, o.value] : prev.filter(x => x !== o.value))
+                }
+              />
+              {o.label}
+            </label>
+          ))}
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -160,6 +200,8 @@ export default function AdminNoticesPage() {
             <option value="publishAt">{VI_MISC.publishAt}</option>
             <option value="updatedAt">{VI_MISC.updatedAt}</option>
           </select>
+          </div>
+          <div className="flex items-center gap-2">
           <input
             type="date"
             className="rounded-md border px-2 py-2"
@@ -194,8 +236,8 @@ export default function AdminNoticesPage() {
               <th className="px-3 py-2">Danh mục</th>
               <th className="px-3 py-2">{VI_MISC.status}</th>
               <th className="px-3 py-2">{VI_MISC.visibility}</th>
-    <th className="px-3 py-2">{VI_MISC.publishAt}</th>
-    <th className="px-3 py-2">{VI_MISC.expireAt}</th>
+              <th className="px-3 py-2">{VI_MISC.publishAt}</th>
+              <th className="px-3 py-2">{VI_MISC.expireAt}</th>
               <th className="px-3 py-2 text-right">Thao tác</th>
             </tr>
           </thead>

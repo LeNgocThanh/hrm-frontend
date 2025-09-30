@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Bell from "@/components/notifications/Bell";
+import { boolean } from "zod";
 
 const navigationItems = [
   {
@@ -74,6 +75,7 @@ export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+  const [open, setOpen] = useState(false);
 
   // Read name on client to avoid hydration mismatch
   const [fullName, setFullName] = useState<string | null>(null);
@@ -176,12 +178,45 @@ export default function Navigation() {
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline text-sm text-gray-700">Hi: <span className="font-medium">{fullName ?? "—"}</span></span>
             <Bell />
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-600 hover:text-green-900 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              LogOut
-            </button>
+             <div className="relative inline-block text-left">
+      {/* Nút mở menu */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+      >
+        Menu
+        <svg
+          className="ml-1 h-4 w-4"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      {/* Menu con */}
+      {open && (
+        <div className="absolute right-0 mt-2 w-40 bg-white border rounded-md shadow-lg z-10">
+          <a
+            href="/login/changePassword"
+            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Change password
+          </a>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left block px-4 py-2 text-sm text-green-600 hover:text-green-900 hover:bg-gray-100 rounded-md"
+          >
+            LogOut
+          </button>
+        </div>
+      )}
+    </div>
           </div>
         </div>
       </div>

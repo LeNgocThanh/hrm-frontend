@@ -36,7 +36,7 @@ import { getUsers } from "@/lib/api/users";
 import { getUserAssignmentsByUser } from "@/lib/api/user-assignments";
 import { getUserDocument } from "@/lib/api/userDocument";
 import { getPositions } from "@/lib/api/positions";
-import { EDUCATION_LEVELS_VI, EDUCATION_LEVELS_OPTIONS } from "@/i18n/user.vi"
+import { EDUCATION_LEVELS_VI, EDUCATION_LEVELS_OPTIONS, WORK_TYPE_OPTIONS, workTypeOptions } from "@/i18n/user.vi"
 
 // ==== Small helpers ====
 const isValid = (d?: string | Date | null) => {
@@ -479,7 +479,7 @@ const birthdaysThisMonth = useMemo(() => {
           <tbody className="divide-y divide-gray-100 bg-white">
             {educationStats.map((r) => (
               <tr key={r.name}>
-                <td className="px-4 py-2 text-sm text-gray-800">{r.name}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">{EDUCATION_LEVELS_OPTIONS.find(option => option.value === r.name)?.label}</td>
                 <td className="px-4 py-2 text-right text-sm text-gray-800">{r.count}</td>
               </tr>
             ))}
@@ -509,7 +509,7 @@ const birthdaysThisMonth = useMemo(() => {
             <ul className="space-y-2">
               {workTypeStats.map((w, i) => (
                 <li key={w.type} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-2">
-                  <span className="text-sm text-gray-700" style={{ color: pieColors[i % pieColors.length] }}>{w.type || "unknown"}</span>
+                  <span className="text-sm text-gray-700" style={{ color: pieColors[i % pieColors.length] }}>{WORK_TYPE_OPTIONS.find(option => option.value === w.type)?.label || "unknown"}</span>
                   <span className="text-sm font-semibold text-gray-900">{w.count}</span>
                 </li>
               ))}

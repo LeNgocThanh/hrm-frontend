@@ -14,6 +14,7 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
 
+
 function toIsoOrUndefined(v?: string) {
   if (!v) return undefined;
   const dt = new Date(v);
@@ -55,6 +56,45 @@ export default function NoticeAdminForm({
   const [attachPreview, setAttachPreview] = useState<UploadFileRef[]>([]);
 
   // nạp initialData khi sửa
+  useEffect(() => {
+    const userInfo = localStorage.getItem("userInfo");
+
+    if (userInfo) {
+      const parsed = JSON.parse(userInfo);
+
+      // List quyền cần có ít nhất một
+      const requiredPermissions = ["Notice:manage", "Notice:create", "All:manage", "Notice:update"];
+
+      // Flatten quyền từ groupedPermissions
+      interface GroupedPermissions {
+        [module: string]: string[];
+      }
+
+      interface ScopedPermission {
+        groupedPermissions?: GroupedPermissions;
+      }
+
+      interface UserInfo {
+        scopedPermissions?: ScopedPermission[];
+      }
+
+      const permissions = (parsed.scopedPermissions || [] as ScopedPermission[])
+        .flatMap((org: ScopedPermission) =>
+          Object.entries(org.groupedPermissions || {} as GroupedPermissions)
+            .flatMap(([module, actions]: [string, string[]]) => actions.map((action: string) => `${module}:${action}`))
+        );
+
+      // Check xem có giao nhau không
+      const hasPermission = requiredPermissions.some(r => permissions.includes(r));
+
+      if (!hasPermission) {
+        router.push("/unauthorized"); // về trang chủ
+      }
+    } else {
+      router.push("/");; // chưa login thì về trang chủ
+    }
+  }, []);
+
   useEffect(() => {
     if (!initialData) return;
     const ci = (initialData as any).coverImage;
