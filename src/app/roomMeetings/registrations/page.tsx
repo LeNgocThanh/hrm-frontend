@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import useSWR from 'swr';
+import useSWR, {mutate} from 'swr';
 import StatusPill from '@/components/roomMeeting/statusPill';
 import RegistrationDetails from '../../../components/roomMeeting/registration-details';
 import { api } from '@/lib/api/room-meetings';
@@ -141,6 +141,11 @@ function SelectUser({
   );
 }
 
+const refreshMeetings = () => {
+  mutate(['/meetings', 'pending', from, to]);
+  mutate(['/meetings', 'scheduled', from, to]);
+};
+
   // ====== UI ======
   return (
     <div className="space-y-6">
@@ -249,6 +254,7 @@ function SelectUser({
               usersMap={userMap}
               roomsMap={roomMap}
               orgsMap={orgMap}
+              onApproved={refreshMeetings}
             />
           );
         })}
@@ -259,7 +265,7 @@ function SelectUser({
 
 function RegistrationItem({
   meeting, roomName, orgOwnerName, organizerName, chairNames, conflicts, inPast,
-  usersMap, roomsMap, orgsMap
+  usersMap, roomsMap, orgsMap, onApproved
 }: {
   meeting: Meeting;
   roomName: string;
@@ -271,6 +277,7 @@ function RegistrationItem({
   usersMap: Map<string, User>;
   roomsMap: Map<string, MeetingRoom>;
   orgsMap: Map<string, Organization>;
+  onApproved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -302,12 +309,13 @@ function RegistrationItem({
       {open && (
         <RegistrationDetails
           meeting={meeting}
-          onClose={()=>setOpen(false)}
+          onClose={()=>setOpen(false)}          
           usersMap={usersMap}
           roomsMap={roomsMap}
           orgsMap={orgsMap}
           hasConflicts={conflicts.length > 0}
           disableApprove={inPast}
+          onApproved={onApproved}
         />
       )}
     </>

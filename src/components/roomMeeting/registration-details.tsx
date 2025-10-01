@@ -9,10 +9,11 @@ import StatusPill from '@/components/roomMeeting/statusPill';
 import { api } from '@/lib/api/room-meetings';
 
 export default function RegistrationDetails({
-  meeting, onClose, usersMap, roomsMap, orgsMap, hasConflicts, disableApprove
+  meeting, onClose, onApproved, usersMap, roomsMap, orgsMap, hasConflicts, disableApprove
 }: {
   meeting: Meeting;
   onClose: () => void;
+  onApproved?: () => void;
   usersMap: Map<string, User>;
   roomsMap: Map<string, MeetingRoom>;
   orgsMap: Map<string, Organization>;
@@ -48,6 +49,7 @@ export default function RegistrationDetails({
         body: JSON.stringify({ decision }),
         credentials: 'include'
       });
+      onApproved?.();
       router.refresh();
       onClose();
     } catch (e: any) {
@@ -56,7 +58,8 @@ export default function RegistrationDetails({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-stretch justify-end bg-black/20">
+    <div className="fixed inset-0 z-40 flex items-stretch justify-end bg-black/20"
+    onClick={onClose}>
       <div className="h-full w-full max-w-xl overflow-auto rounded-l-2xl bg-white p-5 shadow-xl">
         <div className="mb-4 flex items-start justify-between">
           <h3 className="text-lg font-semibold">Chi tiết đăng ký</h3>
