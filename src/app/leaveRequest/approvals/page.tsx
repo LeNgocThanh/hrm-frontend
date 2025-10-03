@@ -98,11 +98,12 @@ export default function LeaveApprovalsPage() {
   const [leaveType, setLeaveType] = useState<string>(''); // lọc theo loại phép của đơn
   const [unit, setUnit] = useState<string>(''); // lọc theo đơn vị trong segments
   const anchorRef = useRef(new Date());
-  const defaultFrom = useMemo(() => { const d = new Date(anchorRef.current); d.setMonth(d.getMonth() - 1); d.setHours(0,0,0,0); return d.toISOString(); }, []);
+  const defaultFrom = useMemo(() => { const d = new Date(anchorRef.current); d.setMonth(d.getMonth()); d.setHours(0,0,0,0); return d.toISOString(); }, []);
   const defaultTo = useMemo(() => { const d = new Date(anchorRef.current); d.setMonth(d.getMonth() + 1); d.setHours(23,59,59,999); return d.toISOString(); }, []);
   const [from, setFrom] = useState<string>(defaultFrom.slice(0,10));
   const [to, setTo] = useState<string>(defaultTo.slice(0,10));
   const [q, setQ] = useState('');
+  const [message, setMessage] = useState<string>('');
 
   const swrOpts = { revalidateOnFocus: false, dedupingInterval: 30_000 };
 
@@ -112,8 +113,7 @@ export default function LeaveApprovalsPage() {
 
   const { data: leaves } = useSWR<LeaveRequest[]>(
     key,
-    ([, f, t, st, uid, ltype, u, query]) => {
-      // đẩy phần lọc chính lên server để giảm tải client (nếu backend đã hỗ trợ)
+    ([, f, t, st, uid, ltype, u, query]) => {    
       const queryObj: Record<string, any> = {
         from: new Date(`${f}T00:00:00`).toISOString(),
         to:   new Date(`${t}T23:59:59.999`).toISOString(),
@@ -145,12 +145,18 @@ export default function LeaveApprovalsPage() {
   }, [rows, leaveType, unit]);
 
   async function actReview(id: string, action: 'approve'|'reject'|'cancel') {
-    // TODO: lấy reviewerId từ session thực tế
+    setMessage('');
+    try {
     await api(`/leave-requests/${id}/review`, {
       method: 'PATCH',
       body: JSON.stringify({ action }),
     });
     mutate(key);
+  }
+  catch (err: any) {
+      setMessage(err.message || 'Có lỗi xảy ra.');
+    } finally {      
+    }
   }
 
   return (
@@ -252,6 +258,7 @@ export default function LeaveApprovalsPage() {
                   {l.status === 'approved' && (
                     <button onClick={()=>actReview(String(l._id), 'cancel')} className="h-9 rounded-md border px-3 text-sm hover:bg-slate-50">Hủy duyệt</button>
                   )}
+                   {message && <div className="text-sm text-slate-600">{message}</div>}
                 </div>
               </div>
             );

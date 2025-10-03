@@ -70,6 +70,7 @@ export default function OvertimeApprovalsPage() {
   const [userId, setUserId] = useState<string>('');
   const [comp, setComp] = useState<string>('');
   const [kind, setKind] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
 
   const key = [BASE, status, userId, comp, kind] as const;
   const { data: items } = useSWR<OT[]>(
@@ -86,8 +87,16 @@ export default function OvertimeApprovalsPage() {
   const rows = Array.isArray(items) ? items : [];
 
   async function review(id: string, action: 'approve'|'reject'|'cancel') {
-    await api(`${BASE}/${id}/review`, { method:'PATCH', body:{ action, reviewerId:'000000000000000000000000' } });
+    setMessage('');
+    try {
+    await api(`${BASE}/${id}/review`, { method:'PATCH', body:{ action} });
     mutate(key);
+    }
+    catch (err: any) {
+      console.log('catch error');
+      setMessage(err.message || 'Có lỗi xảy ra.');
+    } finally {      
+    }
   }
 
   return (
@@ -165,6 +174,7 @@ export default function OvertimeApprovalsPage() {
                 {ot.status==='approved' && (
                   <button className="h-9 rounded-md border px-3 text-sm hover:bg-slate-50" onClick={()=>review(String(ot._id),'cancel')}>Hủy duyệt</button>
                 )}
+                {message && <div className="text-sm text-slate-600">{message}</div>}
               </div>
             </div>
           );
