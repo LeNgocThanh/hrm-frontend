@@ -96,7 +96,7 @@ export default function Navigation() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    window.location.replace("/login");
   };
 
   // Close menus on route change

@@ -18,7 +18,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   React.useEffect(() => {
     if (isAuthenticated && !loadingAuth) {
-      router.push('/'); // hoặc trang chính của bạn
+      window.location.replace("/") // hoặc trang chính của bạn
     }
   }, [isAuthenticated, loadingAuth, router]);
 
