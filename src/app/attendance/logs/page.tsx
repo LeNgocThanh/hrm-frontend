@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+
+import { User } from '@/types';
+import { apiClient } from '@/lib/api';
+import useSWR, { mutate } from 'swr';
 // ==== CONFIG ====
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const USE_MULTIPART = false; // true => send raw file to backend; false => send normalized JSON rows
 const PAGE_SIZE = 20;
+type ObjectId = string;
 
 // Minimal types
 interface LogRow {
@@ -13,6 +18,37 @@ interface LogRow {
     kind?: "IN" | "OUT"; // dùng để preview
     [key: string]: any;
 }
+
+type UserLite = { _id: ObjectId; fullName: string; email?: string };
+
+async function api(path: string, opts: any = {}) {
+    const { method, query, body, headers } = opts;
+    const url = new URL(path.replace(/^\//, ''), API_BASE + '/');
+    const qs = query ? '?' + new URLSearchParams(Object.entries(query).reduce((a, [k, v]) => {
+        if (v == null) return a; a[k] = typeof v === 'object' ? JSON.stringify(v) : String(v); return a;
+    }, {} as Record<string, string>)).toString() : '';
+    const res = await fetch(`${url}${qs}`, {
+        method: method || (body ? 'POST' : 'GET'),
+        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+const fetcher = (p: string, q?: Record<string, any>) => api(p, { query: q });
+async function fetchList<T = any>(p: string, q?: Record<string, any>): Promise<T[]> {
+    const data = await fetcher(p, q);
+    return Array.isArray(data) ? data : (data?.items ?? []);
+}
+
+function resolveUser(u: any, map: Map<string, UserLite>) {
+    if (typeof u === 'string') return map.get(u)?.fullName || u;
+    const id = String(u?._id ?? '');
+    return u?.fullName || map.get(id)?.fullName || id;
+}
+
+
 
 // Column mapping keys we expect
 const REQUIRED_FIELDS = ["userId", "date"] as const;
@@ -26,6 +62,8 @@ export default function AttendanceLogsPage() {
     const [userId, setUserId] = useState("");
     const [from, setFrom] = useState<string>(""); // yyyy-mm-dd
     const [to, setTo] = useState<string>("");
+    const { data: users } = useSWR<UserLite[]>('/users/by-organization', p => fetcher(p), { revalidateOnFocus: false });
+    const userMap = useMemo(() => new Map((users || []).map(u => [String(u._id), u])), [users]);
 
     // Logs state
     const [logs, setLogs] = useState<LogRow[]>([]);
@@ -180,7 +218,7 @@ export default function AttendanceLogsPage() {
                 lowerHeaders.find(({ k }) => keys.some((kk) => k.includes(kk)))?.h || "";
 
             setHeaderMap({
-                userId: find(["userid", "user_id", "ma nv", "manv", "employee", "uid", "mã nhân viên", "nhân viên"]),
+                userId: find(["userid", "user_id", "ma nv", "manv", "employee", "uid", "mã nhân viên", "nhân viên", "id"]),
                 date: find(["date", "ngay", "ngày", "yyyy", "tháng", "day"]),
                 timeIn: find(["in", "gio vao", "giờ vào", "check in", "time in", "vào"]),
                 timeOut: find(["out", "gio ra", "giờ ra", "check out", "time out", "ra"]),
@@ -214,13 +252,20 @@ export default function AttendanceLogsPage() {
             {/* Filters */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600">User ID</label>
-                    <input
+                    <label className="text-sm text-gray-600">Nhân viên</label>
+                    <select
                         value={userId}
                         onChange={(e) => setUserId(e.target.value)}
-                        placeholder="VD: u001"
                         className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2"
-                    />
+                        disabled={!users}  // khi chưa tải xong
+                    >
+                        <option value="">Tất cả nhân viên</option>
+                        {(users || []).map((u) => (
+                            <option key={String(u._id)} value={String(u._id)}>
+                                {u.fullName}{u.email ? ` — ${u.email}` : ""}
+                            </option>
+                        ))}
+                    </select>
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-sm text-gray-600">Từ ngày</label>
@@ -259,7 +304,7 @@ export default function AttendanceLogsPage() {
                             <tr className="text-left">
                                 <th className="px-4 py-3">#</th>
                                 <th className="px-4 py-3">User</th>
-                                <th className="px-4 py-3">Timestamp</th>                                
+                                <th className="px-4 py-3">Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -279,8 +324,8 @@ export default function AttendanceLogsPage() {
                                 pagedLogs.map((r, idx) => (
                                     <tr key={`${r.userId}-${r.timestamp}-${idx}`} className="odd:bg-white even:bg-gray-50">
                                         <td className="px-4 py-2">{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                                        <td className="px-4 py-2 font-medium">{r.userId}</td>
-                                        <td className="px-4 py-2">{formatLocal(r.timestamp)}</td>                                        
+                                        <td className="px-4 py-2 font-medium">{resolveUser(r.userId, userMap)}</td>
+                                        <td className="px-4 py-2">{formatLocal(r.timestamp)}</td>
                                     </tr>
                                 ))
                             )}

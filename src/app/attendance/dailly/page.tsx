@@ -4,6 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const PAGE_SIZE = 20;
+import { User } from '@/types';
+import { apiClient } from '@/lib/api';
+import useSWR, { mutate } from 'swr';
+type ObjectId = string;
 
 // Types — adjust to your daily schema
 interface DailyRow {
@@ -17,6 +21,31 @@ interface DailyRow {
   earlyLeaveMinutes?: number;
   shiftType?: string; // REGULAR, ...
   [key: string]: any;
+}
+
+type UserLite = { _id: ObjectId; fullName: string; email?: string };
+
+async function api(path: string, opts: any = {}) {
+    const { method, query, body, headers } = opts;
+    const url = new URL(path.replace(/^\//, ''), API_BASE + '/');
+    const qs = query ? '?' + new URLSearchParams(Object.entries(query).reduce((a, [k, v]) => {
+        if (v == null) return a; a[k] = typeof v === 'object' ? JSON.stringify(v) : String(v); return a;
+    }, {} as Record<string, string>)).toString() : '';
+    const res = await fetch(`${url}${qs}`, {
+        method: method || (body ? 'POST' : 'GET'),
+        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+const fetcher = (p: string, q?: Record<string, any>) => api(p, { query: q });
+
+function resolveUser(u: any, map: Map<string, UserLite>) {
+    if (typeof u === 'string') return map.get(u)?.fullName || u;
+    const id = String(u?._id ?? '');
+    return u?.fullName || map.get(id)?.fullName || id;
 }
 
 export default function AttendanceDailyPage() {
@@ -44,6 +73,9 @@ export default function AttendanceDailyPage() {
   const [editOut, setEditOut] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const { data: users } = useSWR<UserLite[]>('/users/by-organization', p => fetcher(p), { revalidateOnFocus: false });
+  const userMap = useMemo(() => new Map((users || []).map(u => [String(u._id), u])), [users]);
 
   async function fetchDaily() {
     setLoading(true);
@@ -144,8 +176,20 @@ export default function AttendanceDailyPage() {
       {/* Filters */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">User ID</label>
-          <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="VD: u001" className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2" />
+          <label className="text-sm text-gray-600">Nhân viên</label>
+         <select
+                        value={userId}
+                        onChange={(e) => setUserId(e.target.value)}
+                        className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2"
+                        disabled={!users}  // khi chưa tải xong
+                    >
+                        <option value="">Tất cả nhân viên</option>
+                        {(users || []).map((u) => (
+                            <option key={String(u._id)} value={String(u._id)}>
+                                {u.fullName}{u.email ? ` — ${u.email}` : ""}
+                            </option>
+                        ))}
+                    </select>
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-sm text-gray-600">Từ ngày</label>
@@ -190,7 +234,7 @@ export default function AttendanceDailyPage() {
                   <tr key={`${r.userId}-${r.workDate}-${idx}`} className="odd:bg-white even:bg-gray-50">
                     <td className="px-4 py-2">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-4 py-2">{r.workDate}</td>
-                    <td className="px-4 py-2 font-medium">{r.userId}</td>
+                    <td className="px-4 py-2 font-medium">{resolveUser(r.userId, userMap)}</td>
                     <td className="px-4 py-2">{r.checkIn ? formatLocal(r.checkIn) : "—"}</td>
                     <td className="px-4 py-2">{r.checkOut ? formatLocal(r.checkOut) : "—"}</td>
                     <td className="px-4 py-2">{minsToHHmm(r.workedMinutes)}</td>
