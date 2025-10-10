@@ -215,7 +215,7 @@ export default function DailyAttendancePage() {
   };
 
 
-  if (error) return <div className="p-4 text-red-600 bg-red-100 rounded-xl">Lỗi tải dữ liệu chấm công: {error.message}</div>;
+  if (error) return <div className="p-4 text-red-600 bg-red-100 rounded-xl">Lỗi tải dữ liệu chấm công: </div>;
 
   return (
     <div className="p-4 sm:p-8 bg-gray-50 min-h-screen font-sans">
