@@ -6,7 +6,7 @@ import { Plus, Pencil, Trash2, X, Clock, User, Calendar, Search, AlertTriangle }
 // --- Hằng số và Hàm tiện ích từ effective-range.ts ---
 
 const FROM_MIN = '0001-01-01';
-const TO_MAX   = '9999-12-31';
+const TO_MAX = '9999-12-31';
 
 /** Chuẩn hóa effectiveFrom */
 const normFrom = (v?: string | null) => {
@@ -34,7 +34,7 @@ const overlaps = (
 
 // Vui lòng thay đổi URL API thực tế của bạn
 const USER_POLICY_BASE_URL = 'http://localhost:4000/user-policy-bindings';
-const SHIFT_TYPE_BASE_URL = 'http://localhost:4000/shift-types'; 
+const SHIFT_TYPE_BASE_URL = 'http://localhost:4000/shift-types';
 const MAX_RETRIES = 3;
 
 // Enum cho Policy Type
@@ -102,7 +102,7 @@ async function fetcher<T>(url: string, options: RequestInit = {}, retries: numbe
         if (contentType && contentType.includes("application/json")) {
             return await response.json() as T;
         }
-        return {} as T; 
+        return {} as T;
     } catch (error) {
         if (retries < MAX_RETRIES) {
             const nextDelay = Math.pow(2, retries) * 1000;
@@ -121,9 +121,9 @@ async function fetcher<T>(url: string, options: RequestInit = {}, retries: numbe
 const userPolicyApi = {
     // GET /user-policy-bindings?userId=...&policyType=SHIFT_TYPE
     findAll: async (userId: string): Promise<{ items: UserPolicyBinding[] }> => {
-        const searchParams = new URLSearchParams({ 
-            userId, 
-            policyType: UserPolicyType.SHIFT_TYPE 
+        const searchParams = new URLSearchParams({
+            userId,
+            policyType: UserPolicyType.SHIFT_TYPE
         });
         return fetcher<{ items: UserPolicyBinding[] }>(`${USER_POLICY_BASE_URL}?${searchParams.toString()}`);
     },
@@ -161,7 +161,7 @@ const shiftTypeApi = {
     // GET /shift-types (chỉ cần lấy code và name, không cần pagination vì số lượng thường ít)
     findAllCodes: async (): Promise<ShiftType[]> => {
         // Giả định API /shift-types trả về object { items: ShiftType[] }
-        const response = await fetcher<{ items: ShiftType[] }>(SHIFT_TYPE_BASE_URL + '?limit=1000'); 
+        const response = await fetcher<{ items: ShiftType[] }>(SHIFT_TYPE_BASE_URL + '?limit=1000');
         return response.items;
     }
 }
@@ -195,7 +195,7 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
         setFormData(prev => ({ ...prev, [name]: value }));
         setError(null); // Clear error on input change
     };
-    
+
     // Xử lý trường effectiveTo
     const handleDateToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.trim();
@@ -208,15 +208,15 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
         const currentId = initialData?._id;
         const currentFrom = formData.effectiveFrom;
         const currentTo = formData.effectiveTo;
-        
+
         if (!currentFrom) {
             return "Ngày 'Hiệu lực Từ' không được để trống.";
         }
 
         if (currentTo && currentFrom > currentTo) {
-             return "Ngày 'Hiệu lực Từ' phải nhỏ hơn hoặc bằng 'Hiệu lực Đến'.";
+            return "Ngày 'Hiệu lực Từ' phải nhỏ hơn hoặc bằng 'Hiệu lực Đến'.";
         }
-        
+
         let conflictDetails: string[] = [];
 
         for (const existingBinding of bindings) {
@@ -234,10 +234,10 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
             if (hasOverlap) {
                 const code = existingBinding.policyCode;
                 const existingFrom = existingBinding.effectiveFrom || FROM_MIN;
-                const existingTo = existingBinding.effectiveTo === null || existingBinding.effectiveTo === TO_MAX 
-                    ? 'Vô thời hạn' 
+                const existingTo = existingBinding.effectiveTo === null || existingBinding.effectiveTo === TO_MAX
+                    ? 'Vô thời hạn'
                     : existingBinding.effectiveTo;
-                    
+
                 conflictDetails.push(
                     `[${code}] từ ${existingFrom} đến ${existingTo}`
                 );
@@ -254,7 +254,7 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (conflictMessage) {
             setError(conflictMessage);
             return;
@@ -288,9 +288,9 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
                         <X className="w-6 h-6 text-gray-500" />
                     </button>
                 </div>
-                
+
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    
+
                     <div className="flex items-center space-x-3 p-3 bg-gray-50 border rounded-lg">
                         <User className="w-5 h-5 text-indigo-500" />
                         <span className="font-medium text-gray-700">User ID:</span>
@@ -355,7 +355,7 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
                             <p className="text-sm">{conflictMessage}</p>
                         </div>
                     )}
-                    
+
                     {/* API/Submit Error */}
                     {error && !conflictMessage && (
                         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded" role="alert">
@@ -392,8 +392,8 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
 const UserShiftPolicyPage: React.FC = () => {
     // Giá trị userId giả lập. Trong ứng dụng thực tế, giá trị này sẽ được lấy từ Auth/Context.
     // Lưu ý: User ID phải là ObjectId hợp lệ (24 ký tự hex) để NestJS/Mongoose chấp nhận.
-    const [userId, setUserId] = useState('65f3f9829e32a24d2d46e297'); 
-    
+    const [userId, setUserId] = useState('65f3f9829e32a24d2d46e297');
+
     const [bindings, setBindings] = useState<UserPolicyBinding[]>([]);
     const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]); // Danh sách Policy Code
     const [isLoading, setIsLoading] = useState(true);
@@ -415,7 +415,7 @@ const UserShiftPolicyPage: React.FC = () => {
             // Không set global error, chỉ cảnh báo
         }
     }, []);
-    
+
     // Tải danh sách Bindings theo userId và Kiểm tra xung đột (tính toán client-side)
     const fetchBindings = useCallback(async (currentUserId: string) => {
         if (!isMongoId(currentUserId)) {
@@ -430,9 +430,9 @@ const UserShiftPolicyPage: React.FC = () => {
         try {
             // API Call: GET /user-policy-bindings?userId=...&policyType=SHIFT_TYPE
             const data = await userPolicyApi.findAll(currentUserId);
-            
+
             // Sắp xếp theo effectiveFrom
-            const sortedItems = data.items.sort((a, b) => 
+            const sortedItems = data.items.sort((a, b) =>
                 (a.effectiveFrom || FROM_MIN).localeCompare(b.effectiveFrom || FROM_MIN)
             );
 
@@ -453,7 +453,7 @@ const UserShiftPolicyPage: React.FC = () => {
                         conflictsWith.push(bindingB.policyCode);
                     }
                 }
-                
+
                 // Loại bỏ trùng lặp và gán trạng thái
                 const uniqueConflicts = Array.from(new Set(conflictsWith));
                 return {
@@ -491,7 +491,7 @@ const UserShiftPolicyPage: React.FC = () => {
         if (!isMongoId(data.userId)) {
             throw new Error("User ID không hợp lệ.");
         }
-        
+
         if (id) {
             // API Call: PATCH /user-policy-bindings/:id
             await userPolicyApi.update(id, data);
@@ -526,12 +526,12 @@ const UserShiftPolicyPage: React.FC = () => {
     const handleCreate = () => {
         setEditingBinding(null);
         if (!isMongoId(userId)) {
-             setError("Vui lòng nhập một User ID hợp lệ (24 ký tự hex) trước khi tạo.");
-             return;
+            setError("Vui lòng nhập một User ID hợp lệ (24 ký tự hex) trước khi tạo.");
+            return;
         }
         setIsModalOpen(true);
     };
-    
+
     const handleUserIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setInputUserId(value);
@@ -561,7 +561,7 @@ const UserShiftPolicyPage: React.FC = () => {
             {/* User ID Input */}
             <div className="mb-6 p-4 bg-white rounded-xl shadow-lg border border-indigo-200">
                 <label className="block text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                    <User className="w-5 h-5 mr-2 text-indigo-500" /> 
+                    <User className="w-5 h-5 mr-2 text-indigo-500" />
                     Người Dùng Đang Quản Lý
                 </label>
                 <input
@@ -569,15 +569,14 @@ const UserShiftPolicyPage: React.FC = () => {
                     value={inputUserId}
                     onChange={handleUserIdChange}
                     placeholder="Nhập User ID (MongoDB ObjectId 24 ký tự)"
-                    className={`w-full p-3 border rounded-lg font-mono text-sm shadow-inner transition ${
-                        isUserIdValid ? 'border-gray-300 focus:border-indigo-500' : 'border-red-500 focus:border-red-500'
-                    }`}
+                    className={`w-full p-3 border rounded-lg font-mono text-sm shadow-inner transition ${isUserIdValid ? 'border-gray-300 focus:border-indigo-500' : 'border-red-500 focus:border-red-500'
+                        }`}
                 />
                 {!isUserIdValid && inputUserId.length > 0 && (
-                     <p className="text-sm text-red-500 mt-2">⚠️ User ID phải là 24 ký tự hex hợp lệ (MongoDB ObjectId).</p>
+                    <p className="text-sm text-red-500 mt-2">⚠️ User ID phải là 24 ký tự hex hợp lệ (MongoDB ObjectId).</p>
                 )}
                 {shiftTypes.length === 0 && (
-                     <p className="text-sm text-yellow-600 mt-2">⚠️ Cần tạo Shift Types trước khi gán ca làm.</p>
+                    <p className="text-sm text-yellow-600 mt-2">⚠️ Cần tạo Shift Types trước khi gán ca làm.</p>
                 )}
             </div>
 
@@ -613,16 +612,18 @@ const UserShiftPolicyPage: React.FC = () => {
                                 bindings.map((binding) => {
                                     const shiftType = shiftTypes.find(st => st.code === binding.policyCode);
                                     const effectTo = binding.effectiveTo === TO_MAX || binding.effectiveTo === null
-                                        ? 'Vô thời hạn' 
+                                        ? 'Vô thời hạn'
                                         : binding.effectiveTo;
-                                        
+
                                     return (
-                                        <tr 
-                                            key={binding._id} 
+                                        <tr
+                                            key={binding._id}
                                             className={`hover:bg-gray-50 transition ${binding.isConflicting ? 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500' : ''}`}
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-700">
-                                                {binding.isConflicting && <AlertTriangle className="w-4 h-4 inline-block mr-2 text-red-500" title={`Xung đột với: ${binding.conflictsWith?.join(', ')}`} />}
+                                                {binding.isConflicting && <AlertTriangle className="w-4 h-4 inline-block mr-2 text-red-500">
+                                                    <title>Xung đột với: {binding.conflictsWith?.join(', ')}</title>
+                                                </AlertTriangle>}
                                                 {binding.policyCode}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
