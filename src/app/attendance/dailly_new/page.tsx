@@ -279,6 +279,7 @@ export default function DailyAttendancePage() {
                       <th className="px-4 py-3 text-right">Giờ làm Hợp lệ</th>
                       <th className="px-4 py-3 text-center">AM (Vào/Ra)</th>
                       <th className="px-4 py-3 text-center">PM (Vào/Ra)</th>
+                      <th className="px-4 py-3 text-center">OV (Vào/Ra)</th>
                       <th className="px-4 py-3 text-right">Đi Muộn</th>
                       <th className="px-4 py-3 text-right">Về Sớm</th>
                       <th className="px-4 py-3 text-right">Hành động</th>
@@ -313,6 +314,12 @@ export default function DailyAttendancePage() {
                         <td className="px-4 py-3 text-xs text-center">
                             <span className="font-semibold">{toHHmmLocal(row.pm?.checkIn_Edit ? row.pm?.checkIn_Edit : row.pm?.checkIn)}</span> / <span className="text-gray-500">{toHHmmLocal(row.pm?.checkOut_Edit ? row.pm?.checkOut_Edit : row.pm?.checkOut)}</span>
                             {row.pm?.fulfilled && <span className="text-green-500 ml-1" title="Phiên làm việc đầy đủ">✅</span>}
+                        </td>
+
+                        {/* PM Session Detail */}
+                        <td className="px-4 py-3 text-xs text-center">
+                            <span className="font-semibold">{toHHmmLocal(row.ov?.checkIn_Edit ? row.ov?.checkIn_Edit : row.ov?.checkIn)}</span> / <span className="text-gray-500">{toHHmmLocal(row.ov?.checkOut_Edit ? row.ov?.checkOut_Edit : row.ov?.checkOut)}</span>
+                            {row.ov?.fulfilled && <span className="text-green-500 ml-1" title="Phiên làm việc đầy đủ">✅</span>}
                         </td>
 
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right">
