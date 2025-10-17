@@ -225,10 +225,12 @@ useEffect(() => {
       if (userId) query.userId = userId;
       if (from) query.from = utcStartOfDateInTz(from,TZ);
       if (to) query.to = utcEndOfDateInTz(to,TZ);
-      const data = await api('/attendance/logs', { query });
+      let data : any;
+      if (userId) {data = await api(`/attendance/logs/${userId}`, { query });;}
+      else { data = await api('/attendance/logs', { query });}
       const items = Array.isArray(data) ? data : (data?.items ?? []);
       const normalized: LogRow[] = items.map((r: any) => ({
-        userId: String(r.userId ?? r.user_id ?? ""),
+        userId: String(r.userId ?? r.user_id ?? r._id ?? ""),
         timestamp: r.timestamp ? new Date(r.timestamp).toISOString() : "",
         source: r.source ?? r.device ?? r.machine ?? "",
         _raw: r,
@@ -437,7 +439,7 @@ useEffect(() => {
 
               {!!previewRows.length && (
                 <div className="border rounded-xl overflow-hidden">
-                  <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 50)</div>
+                  <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 10)</div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50">
@@ -449,7 +451,7 @@ useEffect(() => {
                         </tr>
                       </thead>
                       <tbody>
-                        {previewRows.slice(0, 50).map((r, idx) => (
+                        {previewRows.slice(0, 10).map((r, idx) => (
                           <tr key={`prev-${idx}`} className="odd:bg-white even:bg-gray-50">
                             <td className="px-3 py-2">{idx + 1}</td>
                             <td className="px-3 py-2">{String(r.userId || "")}</td>
