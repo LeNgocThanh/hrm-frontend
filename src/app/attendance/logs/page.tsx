@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getDayNameFromDate } from "@/utils/date-helpers";
 
 // ==== CONFIG ====
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -49,7 +50,7 @@ async function api(path: string, opts: any = {}) {
     try {
       const txt = await res.text();
       if (isJson && txt) msg = (JSON.parse(txt).message || msg); else if (txt) msg = txt;
-    } catch {}
+    } catch { }
     throw new Error(msg || `HTTP ${res.status}`);
   }
   if (res.status === 204) return null;
@@ -75,7 +76,7 @@ function resolveUser(u: any, map: Map<string, UserLite>) {
 
 // Column mapping keys we expect
 const REQUIRED_FIELDS = ["userId", "date"] as const;
-const OPTIONAL_FIELDS = ["timeIn", "timeOut"] as const; // có thể chọn 1 hoặc 2
+const OPTIONAL_FIELDS = ["time1", "time2", "time3", "time4", "time5", "time6"] as const; // có thể chọn 1 hoặc 2
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
 
 type FieldKey = (typeof ALL_FIELDS)[number];
@@ -86,10 +87,10 @@ export default function AttendanceLogsPage() {
     // Tạo file mẫu Excel: cột userId, date, timeIn, timeOut
     const XLSX = await import('xlsx');
     const rows = [
-      { userId: 'U001', date: '2025-10-01', timeIn: '08:00', timeOut: '17:00' },
-      { userId: 'U002', date: '2025-10-01', timeIn: '08:05', timeOut: '' },
+      { userId: 'U001', date: '2025-10-01', time1: '08:00', time2: '09:00',time3: '10:00',time4: '12:00',time5: '13:30',time6: '17:00' },
+      { userId: 'U002', date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '' },
     ];
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ['userId','date','timeIn','timeOut'] });
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['userId', 'date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6'] });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');
     XLSX.writeFile(wb, 'logs_import_template.xlsx');
@@ -102,7 +103,7 @@ export default function AttendanceLogsPage() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Logs');
-    XLSX.writeFile(wb, `logs_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `logs_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   async function exportDocx() {
@@ -120,7 +121,7 @@ export default function AttendanceLogsPage() {
 
     const rows = groupRows.map((r, i) => new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph(String(i+1))] }),
+        new TableCell({ children: [new Paragraph(String(i + 1))] }),
         new TableCell({ children: [new Paragraph(r.userName)] }),
         new TableCell({ children: [new Paragraph(r.dateKey)] }),
         new TableCell({ children: [new Paragraph(r.times.join(' - '))] }),
@@ -130,7 +131,7 @@ export default function AttendanceLogsPage() {
     const table = new Table({ rows: [headerRow, ...rows] });
     const doc = new Document({ sections: [{ properties: {}, children: [new Paragraph({ text: 'Attendance Logs', heading: 'Heading1' }), table] }] });
     const blob = await Packer.toBlob(doc);
-    triggerDownload(blob, `logs_${new Date().toISOString().slice(0,10)}.docx`);
+    triggerDownload(blob, `logs_${new Date().toISOString().slice(0, 10)}.docx`);
   }
 
   async function exportPdf() {
@@ -138,10 +139,10 @@ export default function AttendanceLogsPage() {
     const autoTable = (await import('jspdf-autotable')).default;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     doc.setFontSize(14); doc.text('Attendance Logs', 40, 40);
-    const body = groupRows.map((r, i) => [String(i+1), r.userName, r.dateKey, r.times.join(' - ')]);
+    const body = groupRows.map((r, i) => [String(i + 1), r.userName, r.dateKey, r.times.join(' - ')]);
     // @ts-ignore
-    autoTable(doc, { startY: 60, head: [['#','User','Date','Timestamps (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4 } });
-    doc.save(`logs_${new Date().toISOString().slice(0,10)}.pdf`);
+    autoTable(doc, { startY: 60, head: [['#', 'User', 'Date', 'Timestamps (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4 } });
+    doc.save(`logs_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -154,21 +155,21 @@ export default function AttendanceLogsPage() {
   const [from, setFrom] = useState<string>(""); // yyyy-mm-dd
   const [to, setTo] = useState<string>("");
   const [users, setUsers] = useState<UserLite[]>([]);
-const [usersLoading, setUsersLoading] = useState(false);
-const [usersError, setUsersError] = useState<string | null>(null);
-useEffect(() => {
-  let cancelled = false;
-  setUsersLoading(true);
-  api('/users/by-organization')
-    .then((res: any) => {
-      if (cancelled) return;
-      const arr = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
-      setUsers(arr as UserLite[]);
-    })
-    .catch((e: any) => { if (!cancelled) setUsersError(e?.message || ''); })
-    .finally(() => { if (!cancelled) setUsersLoading(false); });
-  return () => { cancelled = true; };
-}, []);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setUsersLoading(true);
+    api('/users/by-organization')
+      .then((res: any) => {
+        if (cancelled) return;
+        const arr = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+        setUsers(arr as UserLite[]);
+      })
+      .catch((e: any) => { if (!cancelled) setUsersError(e?.message || ''); })
+      .finally(() => { if (!cancelled) setUsersLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
   // If not using global SWR in your project, replace the above with your own hook/import
 
   const userMap = useMemo(() => new Map((users || []).map((u: any) => [String(u._id), u])), [users]);
@@ -211,7 +212,16 @@ useEffect(() => {
   const [showImport, setShowImport] = useState(false);
   const [rawHeaders, setRawHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
-  const [headerMap, setHeaderMap] = useState<Record<FieldKey, string | "">>({ userId: "", date: "", timeIn: "", timeOut: "" });
+  const [headerMap, setHeaderMap] = useState<Record<FieldKey, string | "">>({
+    userId: "",
+    date: "",
+    time1: "",
+    time2: "",
+    time3: "",
+    time4: "",
+    time5: "",
+    time6: "",
+  });
   const [importError, setImportError] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<LogRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -223,11 +233,11 @@ useEffect(() => {
     try {
       const query: any = {};
       if (userId) query.userId = userId;
-      if (from) query.from = utcStartOfDateInTz(from,TZ);
-      if (to) query.to = utcEndOfDateInTz(to,TZ);
-      let data : any;
-      if (userId) {data = await api(`/attendance/logs/${userId}`, { query });;}
-      else { data = await api('/attendance/logs', { query });}
+      if (from) query.from = utcStartOfDateInTz(from, TZ);
+      if (to) query.to = utcEndOfDateInTz(to, TZ);
+      let data: any;
+      if (userId) { data = await api(`/attendance/logs/${userId}`, { query });; }
+      else { data = await api('/attendance/logs', { query }); }
       const items = Array.isArray(data) ? data : (data?.items ?? []);
       const normalized: LogRow[] = items.map((r: any) => ({
         userId: String(r.userId ?? r.user_id ?? r._id ?? ""),
@@ -252,11 +262,22 @@ useEffect(() => {
       for (const row of rawRows) {
         const uid = headerMap.userId ? String(row[headerMap.userId]).trim() : "";
         const dateCell = headerMap.date ? row[headerMap.date] : "";
-        const timeInCell = headerMap.timeIn ? row[headerMap.timeIn] : "";
-        const timeOutCell = headerMap.timeOut ? row[headerMap.timeOut] : "";
         if (!uid || !dateCell) continue;
-        if (timeInCell) { const ts = combineDateAndTime(dateCell, timeInCell); if (ts) out.push({ userId: uid, timestamp: ts, kind: 'IN' }); }
-        if (timeOutCell){ const ts = combineDateAndTime(dateCell, timeOutCell); if (ts) out.push({ userId: uid, timestamp: ts, kind: 'OUT'}); }
+
+        // Lặp qua 6 cột thời gian
+        for (let i = 1; i <= 6; i++) {
+          const field = `time${i}` as FieldKey; // time1, time2, ...
+          const timeCell = headerMap[field] ? row[headerMap[field]] : "";
+
+          if (timeCell) {
+            const ts = combineDateAndTime(dateCell, timeCell);
+            if (ts) {              // Gán loại (kind) dựa vào số thứ tự (ví dụ: lẻ là IN, chẵn là OUT)
+              // Hoặc không gán loại, để backend tự xử lý thứ tự
+
+              out.push({ userId: uid, timestamp: ts });
+            }
+          }
+        }
       }
       setPreviewRows(out);
       setImportError(null);
@@ -290,11 +311,15 @@ useEffect(() => {
     } catch (e: any) {
       setImportError(e?.message || 'Upload thất bại');
     }
-  }  
+  }
 
   function resetImport() {
     setRawHeaders([]); setRawRows([]);
-    setHeaderMap({ userId: '', date: '', timeIn: '', timeOut: '' });
+    setHeaderMap({
+      userId: '', date: '',
+      time1: '', time2: '', time3: '',
+      time4: '', time5: '', time6: '',
+    });
     setPreviewRows([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -309,10 +334,15 @@ useEffect(() => {
       const lower = headers.map((h) => ({ h, k: h.toLowerCase() }));
       const find = (keys: string[]) => lower.find(({ k }) => keys.some((kk) => k.includes(kk)))?.h || '';
       setHeaderMap({
-        userId: find(['userid','user_id','ma nv','manv','employee','uid','mã nhân viên','nhân viên','id']),
-        date:   find(['date','ngay','ngày','yyyy','tháng','day']),
-        timeIn: find(['in','gio vao','giờ vào','check in','time in','vào']),
-        timeOut:find(['out','gio ra','giờ ra','check out','time out','ra']),
+        userId: find(['userid', 'user_id', 'ma nv', 'manv', 'employee', 'uid', 'mã nhân viên', 'nhân viên', 'id']),
+        date: find(['date', 'ngay', 'ngày', 'yyyy', 'tháng', 'day']),
+        // Logic tìm 6 cột time: tìm cột có chứa 'time', 'giờ', 'in', 'out', hoặc '1', '2', ...
+        time1: find(['time 1', 'time1', 'giờ 1', '1', 'in']), // Ví dụ: Cột đầu tiên có thể là 'in'
+        time2: find(['time 2', 'time2', 'giờ 2', '2', 'out']),// Ví dụ: Cột thứ hai có thể là 'out'
+        time3: find(['time 3', 'time3', 'giờ 3', '3']),
+        time4: find(['time 4', 'time4', 'giờ 4', '4']),
+        time5: find(['time 5', 'time5', 'giờ 5', '5']),
+        time6: find(['time 6', 'time6', 'giờ 6', '6']),
       });
     } catch (e: any) {
       setImportError(e?.message || 'Không đọc được file');
@@ -391,7 +421,7 @@ useEffect(() => {
                   <tr key={`${r.userId}-${r.dateKey}`} className="odd:bg-white even:bg-gray-50">
                     <td className="px-4 py-2">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-4 py-2 font-medium">{r.userName}</td>
-                    <td className="px-4 py-2">{r.dateKey}</td>
+                    <td className="px-4 py-2">{getDayNameFromDate(r.dateKey)} - {r.dateKey}</td>
                     <td className="px-4 py-2 whitespace-pre-wrap">{r.times.join(' - ')}</td>
                   </tr>
                 ))
@@ -442,12 +472,12 @@ useEffect(() => {
                   <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 10)</div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
+                      // ...
                       <thead className="bg-gray-50">
                         <tr className="text-left">
                           <th className="px-3 py-2">#</th>
                           <th className="px-3 py-2">userId</th>
-                          <th className="px-3 py-2">timestamp</th>
-                          <th className="px-3 py-2">Loại</th>
+                          <th className="px-3 py-2" colSpan={2}>timestamp</th> {/* Tùy chọn colSpan */}
                         </tr>
                       </thead>
                       <tbody>
@@ -455,8 +485,7 @@ useEffect(() => {
                           <tr key={`prev-${idx}`} className="odd:bg-white even:bg-gray-50">
                             <td className="px-3 py-2">{idx + 1}</td>
                             <td className="px-3 py-2">{String(r.userId || "")}</td>
-                            <td className="px-3 py-2">{r.timestamp ? formatLocal(r.timestamp) : ""}</td>
-                            <td className="px-3 py-2">{r.kind || ""}</td>
+                            <td className="px-3 py-2" colSpan={2}>{r.timestamp ? formatLocal(r.timestamp) : ""}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -508,11 +537,11 @@ function formatLocal(iso: string) {
   return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "medium" }).format(d);
 }
 function toDateKeyLocal(d: Date, tz: string) {
-  return new Intl.DateTimeFormat('en-CA',{ timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' }).format(d);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 function toHHmmLocal(d: Date, tz: string) {
-  const hh = new Intl.DateTimeFormat('en-GB',{ timeZone: tz, hour:'2-digit', hourCycle:'h23'}).format(d);
-  const mm = new Intl.DateTimeFormat('en-GB',{ timeZone: tz, minute:'2-digit'}).format(d);
+  const hh = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(d);
+  const mm = new Intl.DateTimeFormat('en-GB', { timeZone: tz, minute: '2-digit' }).format(d);
   return `${hh}:${mm}`;
 }
 
@@ -568,20 +597,20 @@ function combineDateAndTime(dateCell: any, timeCell: any): string | null {
 }
 function toDateFromCell(v: any): Date | null {
   if (v == null) return null;
-  if (typeof v === "number") { const base = excelSerialToDate(v); if (!base) return null; base.setHours(0,0,0,0); return base; }
-  if (v instanceof Date) { const d = new Date(v); d.setHours(0,0,0,0); return isNaN(d.getTime()) ? null : d; }
+  if (typeof v === "number") { const base = excelSerialToDate(v); if (!base) return null; base.setHours(0, 0, 0, 0); return base; }
+  if (v instanceof Date) { const d = new Date(v); d.setHours(0, 0, 0, 0); return isNaN(d.getTime()) ? null : d; }
   const s = String(v).trim(); if (!s) return null;
   const m1 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (m1) { const dd=+m1[1], MM=+m1[2]-1, yyyy=+(m1[3].length===2?"20"+m1[3]:m1[3]); const d=new Date(yyyy,MM,dd,0,0,0,0); return isNaN(d.getTime())?null:d; }
-  const d = new Date(s); if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); return d; } return null;
+  if (m1) { const dd = +m1[1], MM = +m1[2] - 1, yyyy = +(m1[3].length === 2 ? "20" + m1[3] : m1[3]); const d = new Date(yyyy, MM, dd, 0, 0, 0, 0); return isNaN(d.getTime()) ? null : d; }
+  const d = new Date(s); if (!isNaN(d.getTime())) { d.setHours(0, 0, 0, 0); return d; } return null;
 }
 function toTimePartsFromCell(v: any): { hh: number; mm: number; ss?: number } | null {
   if (v == null) return null;
-  if (typeof v === "number") { const totalSeconds = Math.round(v * 24 * 60 * 60); const hh = Math.floor(totalSeconds/3600); const mm = Math.floor((totalSeconds%3600)/60); const ss = totalSeconds%60; return { hh, mm, ss }; }
+  if (typeof v === "number") { const totalSeconds = Math.round(v * 24 * 60 * 60); const hh = Math.floor(totalSeconds / 3600); const mm = Math.floor((totalSeconds % 3600) / 60); const ss = totalSeconds % 60; return { hh, mm, ss }; }
   if (v instanceof Date) { return { hh: v.getHours(), mm: v.getMinutes(), ss: v.getSeconds() }; }
   const s = String(v).trim(); if (!s) return null;
   const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (m) { const hh=+m[1], mm=+m[2], ss=m[3]?+m[3]:undefined; if (hh>=0 && hh<24 && mm>=0 && mm<60 && (ss==null || (ss>=0 && ss<60))) return { hh, mm, ss }; }
+  if (m) { const hh = +m[1], mm = +m[2], ss = m[3] ? +m[3] : undefined; if (hh >= 0 && hh < 24 && mm >= 0 && mm < 60 && (ss == null || (ss >= 0 && ss < 60))) return { hh, mm, ss }; }
   return null;
 }
 function excelSerialToDate(serial: number): Date | null { const excelEpoch = new Date(Date.UTC(1899, 11, 30)); const millis = Math.round(serial * 24 * 60 * 60 * 1000); const d = new Date(excelEpoch.getTime() + millis); return isNaN(d.getTime()) ? null : d; }

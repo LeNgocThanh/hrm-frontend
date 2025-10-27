@@ -32,6 +32,18 @@ export default function AdminLayout({
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Bảng tổng hợp tháng
+                </a>    
+                 <a
+                  href="/attendance/shiftType"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  Tạo ca chấm công
+                </a>    
+                 <a
+                  href="/attendance/user-policy"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  Gán người cho ca
                 </a>                     
               </div>
             </div>

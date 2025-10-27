@@ -1,383 +1,423 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, X, Clock, User, Calendar, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Clock, AlertTriangle, Save, Calendar, Globe, Layers } from 'lucide-react';
 
-// --- Hằng số và Hàm tiện ích từ effective-range.ts ---
+// --- Hằng số và Cấu hình ---
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const DAYS_OF_WEEK = [
+    { key: '1', name: 'Thứ 2' },
+    { key: '2', name: 'Thứ 3' },
+    { key: '3', name: 'Thứ 4' },
+    { key: '4', name: 'Thứ 5' },
+    { key: '5', name: 'Thứ 6' },
+    { key: '6', name: 'Thứ 7' },
+    { key: '0', name: 'Chủ Nhật' },
+];
+const SESSION_CODES = ['AM', 'PM', 'OV']; // Ví dụ về các code phiên
 
-const FROM_MIN = '0001-01-01';
-const TO_MAX = '9999-12-31';
+// --- Types (khớp với shift-type.schema.ts) ---
 
-/** Chuẩn hóa effectiveFrom */
-const normFrom = (v?: string | null) => {
-    return v && v.trim() ? v : FROM_MIN;
-};
+interface ShiftSession {
+    _id?: string;
+    code: string;
+    start: string; // HH:mm
+    end: string; // HH:mm
+    required: boolean;
+    graceInMins?: number;
+    graceOutMins?: number;
+    breakMinutes?: number;
+    maxCheckInEarlyMins?: number;
+    maxCheckOutLateMins?: number;
+}
 
-/** Chuẩn hóa effectiveTo (null hoặc rỗng -> TO_MAX) */
-const normTo = (v?: string | null) => {
-    // API server sẽ coi null là vô thời hạn. Client cũng nên chuẩn hóa để check overlap.
-    return v && v.trim() ? v : TO_MAX;
-};
+interface WeeklyRules {
+    [key: string]: ShiftSession[]; // key là '0' đến '6'
+}
 
-/** Kiểm tra A[from,to] và B[from,to] có chồng lắp không? (khoảng đóng) */
-const overlaps = (
-    aFrom?: string | null, aTo?: string | null,
-    bFrom?: string | null, bTo?: string | null
-) => {
-    const af = normFrom(aFrom), at = normTo(aTo);
-    const bf = normFrom(bFrom), bt = normTo(bTo);
-    // Xảy ra overlap nếu KHÔNG phải (aTo < bFrom HOẶC bTo < aFrom)
-    return !(at < bf || bt < af);
-};
-
-// --- API Client Helpers (Áp dụng Exponential Backoff từ file trước) ---
-
-// Vui lòng thay đổi URL API thực tế của bạn
-const USER_POLICY_BASE_URL = 'http://localhost:4000/user-policy-bindings';
-const SHIFT_TYPE_BASE_URL = 'http://localhost:4000/shift-types';
-const MAX_RETRIES = 3;
-
-// Enum cho Policy Type
-const UserPolicyType = {
-    SHIFT_TYPE: 'SHIFT_TYPE',
-};
-
-// --- Định nghĩa Types (Dựa trên DTO và Schema) ---
-
-// Kiểu dữ liệu ShiftType (để làm danh sách Policy Code)
 interface ShiftType {
-    _id: string;
-    code: string; // Đây là policyCode
+    _id?: string;
+    code: string;
     name: string;
+    timezone?: string; // e.g., 'Asia/Bangkok'
+    weeklyRules: WeeklyRules;
+    isActive?: boolean; // Tạm thêm để hiển thị
+    isCheckTwoTimes?: boolean;
+    [key: string]: any;
 }
 
-// Kiểu dữ liệu Binding (Dựa trên UserPolicyBinding Schema)
-interface UserPolicyBinding {
-    _id: string;
-    userId: string; // Types.ObjectId
-    policyType: string; // Luôn là SHIFT_TYPE
-    policyCode: string; // Mã ca làm (ví dụ: REGULAR)
-    effectiveFrom?: string; // YYYY-MM-DD
-    effectiveTo?: string | null; // YYYY-MM-DD
-    createdAt: string;
-    // Client side calculated status
-    isConflicting?: boolean;
-    conflictsWith?: string[];
-}
+// --- Utils (Tương tự page.tsx) ---
 
-// Kiểu dữ liệu cho Create DTO
-interface CreatePolicyBindingDto {
-    userId: string;
-    policyType: string;
-    policyCode: string;
-    effectiveFrom?: string;
-    effectiveTo?: string | null;
-}
+// mini SWR/fetcher
+async function api(path: string, opts: any = {}) {
+    // Implement fetch logic (GET, POST, PUT, DELETE) similar to the previous example
+    const { method = "GET", query, body, headers } = opts;
+    const url = new URL(path.replace(/^\//, ""), API_BASE + "/");
 
-
-/**
- * Hàm chờ (delay)
- */
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * Generic Fetcher với Exponential Backoff để tăng độ ổn định.
- */
-async function fetcher<T>(url: string, options: RequestInit = {}, retries: number = 0): Promise<T> {
-    try {
-        const response = await fetch(url, options);
-
-        if (!response.ok) {
-            let errorDetail = 'Lỗi không xác định';
-            try {
-                const errorBody = await response.json();
-                errorDetail = errorBody.message || errorDetail;
-            } catch {
-                errorDetail = response.statusText;
-            }
-            throw new Error(`API Error ${response.status}: ${errorDetail}`);
-        }
-
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            return await response.json() as T;
-        }
-        return {} as T;
-    } catch (error) {
-        if (retries < MAX_RETRIES) {
-            const nextDelay = Math.pow(2, retries) * 1000;
-            console.warn(`[API] Lỗi: ${(error as Error).message}. Thử lại sau ${nextDelay}ms... (lần ${retries + 1}/${MAX_RETRIES})`);
-            await delay(nextDelay);
-            return fetcher(url, options, retries + 1);
-        }
-        console.error("[API] Thất bại sau nhiều lần thử lại:", error);
-        throw error;
+    // Giả định backend dùng endpoint 'shift-types' cho CRUD
+    if (query) {
+        Object.entries(query).forEach(([k, v]) => {
+            if (v != null && v !== "")
+                url.searchParams.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+        });
     }
-}
-
-/**
- * Client cho UserPolicyBinding API
- */
-const userPolicyApi = {
-    // GET /user-policy-bindings?userId=...&policyType=SHIFT_TYPE
-    findAll: async (userId: string): Promise<{ items: UserPolicyBinding[] }> => {
-        const searchParams = new URLSearchParams({
-            userId,
-            policyType: UserPolicyType.SHIFT_TYPE
-        });
-        return fetcher<{ items: UserPolicyBinding[] }>(`${USER_POLICY_BASE_URL}?${searchParams.toString()}`);
-    },
-
-    // POST /user-policy-bindings
-    create: async (data: CreatePolicyBindingDto): Promise<UserPolicyBinding> => {
-        return fetcher<UserPolicyBinding>(USER_POLICY_BASE_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-    },
-
-    // PATCH /user-policy-bindings/:id
-    update: async (id: string, data: Partial<CreatePolicyBindingDto>): Promise<UserPolicyBinding> => {
-        return fetcher<UserPolicyBinding>(`${USER_POLICY_BASE_URL}/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-    },
-
-    // DELETE /user-policy-bindings/:id
-    delete: async (id: string): Promise<void> => {
-        return fetcher<void>(`${USER_POLICY_BASE_URL}/${id}`, {
-            method: 'DELETE',
-        });
-    },
-};
-
-/**
- * Client cho ShiftType API (để lấy danh sách Policy Code)
- */
-const shiftTypeApi = {
-    // GET /shift-types (chỉ cần lấy code và name, không cần pagination vì số lượng thường ít)
-    findAllCodes: async (): Promise<ShiftType[]> => {
-        // Giả định API /shift-types trả về object { items: ShiftType[] }
-        const response = await fetcher<{ items: ShiftType[] }>(SHIFT_TYPE_BASE_URL + '?limit=1000');
-        return response.items;
-    }
-}
-
-// --- Component: Form Tạo/Sửa Binding ---
-
-interface PolicyFormProps {
-    userId: string;
-    shiftTypes: ShiftType[];
-    bindings: UserPolicyBinding[]; // Danh sách bindings hiện tại để kiểm tra xung đột
-    initialData?: UserPolicyBinding | null;
-    onClose: () => void;
-    onSave: (data: CreatePolicyBindingDto, id?: string) => Promise<void>;
-}
-
-const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, initialData, onClose, onSave }) => {
-    const [formData, setFormData] = useState<CreatePolicyBindingDto>({
-        userId,
-        policyType: UserPolicyType.SHIFT_TYPE,
-        policyCode: initialData?.policyCode || (shiftTypes.length > 0 ? shiftTypes[0].code : ''),
-        effectiveFrom: initialData?.effectiveFrom || new Date().toISOString().substring(0, 10), // YYYY-MM-DD
-        effectiveTo: initialData?.effectiveTo || '', // null
+    const res = await fetch(url.toString(), {
+        method,
+        headers: { Accept: "application/json, text/plain, */*", "Content-Type": "application/json", ...headers },
+        body: body ? JSON.stringify(body) : undefined,
     });
-    const [isLoading, setIsLoading] = useState(false);
+
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+
+    if (!res.ok) {
+        let msg = res.statusText;
+        try {
+            const txt = await res.text();
+            if (isJson && txt) msg = (JSON.parse(txt).message || msg);
+            else if (txt) msg = txt;
+        } catch { }
+        throw new Error(msg || `HTTP ${res.status}`);
+    }
+
+    if (res.status === 204) return null;
+    let txt = "";
+    try { txt = await res.text(); } catch { return null; }
+    if (!txt || !txt.trim()) return null;
+
+    if (isJson) {
+        try { return JSON.parse(txt); } catch { return { data: txt }; }
+    }
+    return { data: txt };
+}
+
+
+function useShiftTypes() {
+    const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const isEdit = !!initialData;
+    const fetchShiftTypes = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await api('/shift-types'); // Endpoint giả định
+            const rawShifts: ShiftType[] = res.items || res || [];
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setError(null); // Clear error on input change
+            // Áp dụng normalize khi TẢI DỮ LIỆU về
+            const normalizedShifts = rawShifts.map(shift => ({
+                ...shift,
+                weeklyRules: normalizeWeeklyRules(shift.weeklyRules)
+            }));
+
+            setShiftTypes(normalizedShifts);
+        } catch (err: any) {
+            setError(err.message || "Lỗi khi tải dữ liệu Shift Types");
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchShiftTypes();
+    }, [fetchShiftTypes]);
+
+    const handleSave = useCallback(async (data: ShiftType) => {
+        const method = data._id ? 'PATCH' : 'POST';
+        const url = data._id ? `/shift-types/${data._id}` : '/shift-types';
+        try {
+            const result = await api(url, { method, body: data });
+            fetchShiftTypes(); // Tải lại danh sách
+            return result;
+        } catch (err: any) {
+            throw new Error(err.message || `Lỗi khi ${data._id ? 'cập nhật' : 'tạo mới'} Shift Type`);
+        }
+    }, [fetchShiftTypes]);
+
+    const handleDelete = useCallback(async (id: string) => {
+        try {
+            await api(`/shift-types/${id}`, { method: 'DELETE' });
+            fetchShiftTypes();
+        } catch (err: any) {
+            throw new Error(err.message || "Lỗi khi xóa Shift Type");
+        }
+    }, [fetchShiftTypes]);
+
+    return { shiftTypes, isLoading, error, handleSave, handleDelete };
+}
+
+// --- Component Form cho ShiftType ---
+const ShiftTypeForm = ({ initialData, onClose, onSave }: {
+    initialData?: ShiftType | null;
+    onClose: () => void;
+    onSave: (data: ShiftType) => Promise<any>;
+}) => {
+    // Khởi tạo trạng thái form, đảm bảo weeklyRules có đủ 7 ngày với mảng rỗng
+    const initialWeeklyRules: WeeklyRules = DAYS_OF_WEEK.reduce((acc, day) => {
+        acc[day.key] = initialData?.weeklyRules?.[day.key] || [];
+        return acc;
+    }, {} as WeeklyRules);
+
+    const defaultShift: ShiftType = {
+        code: '',
+        name: '',
+        isCheckTwoTimes: false,
+        weeklyRules: initialWeeklyRules,
     };
 
-    // Xử lý trường effectiveTo
-    const handleDateToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.trim();
-        setFormData(prev => ({ ...prev, effectiveTo: value === '' ? null : value }));
-        setError(null);
-    }
+    const [form, setForm] = useState<ShiftType>(initialData || defaultShift);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [activeDay, setActiveDay] = useState<string>(DAYS_OF_WEEK[0].key);
 
-    // --- LOGIC KIỂM TRA XUNG ĐỘT (OVERLAP) ---
-    const conflictMessage = useMemo(() => {
-        const currentId = initialData?._id;
-        const currentFrom = formData.effectiveFrom;
-        const currentTo = formData.effectiveTo;
+    const isEdit = !!initialData?._id;
 
-        if (!currentFrom) {
-            return "Ngày 'Hiệu lực Từ' không được để trống.";
+    // Thay đổi các trường cơ bản
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const target = e.target as HTMLInputElement | HTMLSelectElement;
+
+        // Khai báo biến để lưu tên (name) và giá trị (value)
+        const { name } = target;
+        let value: string | boolean;
+
+        // Kiểm tra nếu là HTMLInputElement VÀ type là 'checkbox'
+        if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+            // Lấy giá trị từ 'checked' (true hoặc false)
+            value = target.checked;
+        } else {
+            // Lấy giá trị từ 'value' như bình thường cho các input, select khác
+            value = target.value;
         }
+        setForm(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
-        if (currentTo && currentFrom > currentTo) {
-            return "Ngày 'Hiệu lực Từ' phải nhỏ hơn hoặc bằng 'Hiệu lực Đến'.";
-        }
-
-        let conflictDetails: string[] = [];
-
-        for (const existingBinding of bindings) {
-            // Bỏ qua chính binding đang được chỉnh sửa
-            if (isEdit && existingBinding._id === currentId) {
-                continue;
+    // Thêm một phiên làm việc mới (ShiftSession)
+    const handleAddSession = () => {
+        const newSession: ShiftSession = {
+            code: SESSION_CODES[0], // Mặc định là AM
+            start: '09:00',
+            end: '12:00',
+            required: true,
+            graceInMins: 0,
+            graceOutMins: 0,
+            breakMinutes: 0,
+            maxCheckInEarlyMins: 0,
+            maxCheckOutLateMins: 0,
+        };
+        setForm(prev => ({
+            ...prev,
+            weeklyRules: {
+                ...prev.weeklyRules,
+                [activeDay]: [...(prev.weeklyRules[activeDay] || []), newSession]
             }
+        }));
+    };
 
-            // Kiểm tra xung đột với binding hiện tại
-            const hasOverlap = overlaps(
-                currentFrom, currentTo,
-                existingBinding.effectiveFrom, existingBinding.effectiveTo
-            );
-
-            if (hasOverlap) {
-                const code = existingBinding.policyCode;
-                const existingFrom = existingBinding.effectiveFrom || FROM_MIN;
-                const existingTo = existingBinding.effectiveTo === null || existingBinding.effectiveTo === TO_MAX
-                    ? 'Vô thời hạn'
-                    : existingBinding.effectiveTo;
-
-                conflictDetails.push(
-                    `[${code}] từ ${existingFrom} đến ${existingTo}`
-                );
+    // Cập nhật giá trị của ShiftSession
+    const handleSessionChange = (
+        dayKey: string,
+        index: number,
+        field: keyof ShiftSession,
+        value: string | number | boolean
+    ) => {
+        const sessions = form.weeklyRules[dayKey] || [];
+        const updatedSessions = sessions.map((session, i) => {
+            if (i === index) {
+                return {
+                    ...session,
+                    [field]: field === 'required' ? value : (typeof value === 'string' && ['graceInMins', 'graceOutMins', 'breakMinutes', 'maxCheckInEarlyMins', 'maxCheckOutLateMins'].includes(field)) ? parseInt(value, 10) : value
+                };
             }
-        }
+            return session;
+        });
 
-        if (conflictDetails.length > 0) {
-            return `Xung đột thời gian với ${conflictDetails.length} ràng buộc hiện có: ${conflictDetails.join(', ')}. Vui lòng điều chỉnh khoảng thời gian.`;
-        }
+        setForm(prev => ({
+            ...prev,
+            weeklyRules: {
+                ...prev.weeklyRules,
+                [dayKey]: updatedSessions
+            }
+        }));
+    };
 
-        return null;
-    }, [formData.effectiveFrom, formData.effectiveTo, bindings, initialData, isEdit]);
-
+    // Xóa ShiftSession
+    const handleRemoveSession = (dayKey: string, index: number) => {
+        const sessions = form.weeklyRules[dayKey] || [];
+        const updatedSessions = sessions.filter((_, i) => i !== index);
+        setForm(prev => ({
+            ...prev,
+            weeklyRules: {
+                ...prev.weeklyRules,
+                [dayKey]: updatedSessions
+            }
+        }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormError(null);
+        setSaving(true);
 
-        if (conflictMessage) {
-            setError(conflictMessage);
+        // Validation cơ bản
+        if (!form.code || !form.name) {
+            setFormError("Code và Tên không được để trống.");
+            setSaving(false);
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
-
-        // Lọc bỏ effectiveTo rỗng
-        const finalData = {
-            ...formData,
-            effectiveTo: formData.effectiveTo === '' ? null : formData.effectiveTo,
-        } as CreatePolicyBindingDto;
-
         try {
-            await onSave(finalData, initialData?._id);
+            // Chuẩn hóa minutes về number (NaN => 0)
+            const cleanedRules: WeeklyRules = {};
+            for (const [day, sessions] of Object.entries(form.weeklyRules)) {
+                cleanedRules[day] = (sessions || []).map(session => {
+                    const isOV = session.code === 'OV';
+                    const denormalizedEndValue = denormalizeEnd(session.end, isOV);
+                    return {
+                        ...session,
+                        // Chuyển đổi End time cho ca gối ngày (chỉ khi là 'OV')
+                        end: denormalizedEndValue,
+                        // Chuẩn hóa minutes về number (NaN => 0)
+                        graceInMins: parseInt(session.graceInMins as any, 10) || 0,
+                        graceOutMins: parseInt(session.graceOutMins as any, 10) || 0,
+                        breakMinutes: parseInt(session.breakMinutes as any, 10) || 0,
+                        maxCheckInEarlyMins: parseInt(session.maxCheckInEarlyMins as any, 10) || 0,
+                        maxCheckOutLateMins: parseInt(session.maxCheckOutLateMins as any, 10) || 0,
+                    };
+                });
+            }
+
+            await onSave({ ...form, weeklyRules: cleanedRules });
             onClose();
         } catch (err: any) {
-            setError(err.message || 'Lưu thất bại. Vui lòng kiểm tra dữ liệu và console.');
+            setFormError(err.message || 'Lưu thất bại.');
         } finally {
-            setIsLoading(false);
+            setSaving(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-                    <h2 className="text-2xl font-bold text-gray-800">{isEdit ? 'Sửa Ràng Buộc Ca' : 'Tạo Ràng Buộc Ca Mới'}</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition">
-                        <X className="w-6 h-6 text-gray-500" />
+                    <h2 className="text-2xl font-bold text-gray-800">{isEdit ? 'Chỉnh Sửa Loại Ca Làm' : 'Tạo Loại Ca Làm Mới'}</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition">
+                        <X size={24} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
-
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 border rounded-lg">
-                        <User className="w-5 h-5 text-indigo-500" />
-                        <span className="font-medium text-gray-700">User ID:</span>
-                        <code className="text-sm font-mono bg-white p-1 rounded text-indigo-800 break-all">{userId}</code>
-                    </div>
-
-                    {/* Policy Code (Mã Ca) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Mã Ca Làm (Shift Type Code) <span className="text-red-500">*</span></label>
-                        <select
-                            name="policyCode"
-                            value={formData.policyCode}
-                            onChange={handleChange}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                            required
-                            disabled={isEdit} // Thường không cho phép sửa code, chỉ sửa hiệu lực
-                        >
-                            {shiftTypes.length === 0 && <option value="">Đang tải mã ca...</option>}
-                            {shiftTypes.map(st => (
-                                <option key={st.code} value={st.code}>
-                                    {st.code} - {st.name}
-                                </option>
-                            ))}
-                        </select>
-                        {isEdit && <p className="text-xs text-gray-500 mt-1">Mã ca không thể thay đổi khi chỉnh sửa.</p>}
-                        {shiftTypes.length === 0 && <p className="text-xs text-red-500 mt-1">Lưu ý: Không tìm thấy Shift Type nào. Vui lòng tạo Shift Type trước.</p>}
-                    </div>
-
-                    {/* Effective Dates */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Hiệu lực Từ (From) <span className="text-red-500">*</span></label>
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Phần Thông tin chung */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b pb-4">
+                        <div className="col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Mã (Code) <span className="text-red-500">*</span></label>
                             <input
-                                type="date"
-                                name="effectiveFrom"
-                                value={formData.effectiveFrom}
+                                type="text"
+                                name="code"
+                                value={form.code}
                                 onChange={handleChange}
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                required
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                disabled={isEdit}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Hiệu lực Đến (To)</label>
+                        <div className="col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tên <span className="text-red-500">*</span></label>
                             <input
-                                type="date"
-                                name="effectiveTo"
-                                value={formData.effectiveTo || ''}
-                                onChange={handleDateToChange}
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Để trống nếu vô thời hạn"
+                                type="text"
+                                name="name"
+                                value={form.name}
+                                onChange={handleChange}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Để trống = Vô thời hạn ({TO_MAX}).</p>
+                        </div>
+                        <div className="col-span-1">
+                            <label className="text-sm font-medium text-gray-700 mr-2">Chấm công 2 lần trong ngày:</label>
+                            <input
+                                type="checkbox"
+                                name='isCheckTwoTimes'
+                                checked={form.isCheckTwoTimes}
+                                onChange={handleChange}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            />
                         </div>
                     </div>
 
-                    {/* Conflict Message */}
-                    {conflictMessage && (
-                        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded" role="alert">
-                            <p className="font-bold flex items-center">
-                                <AlertTriangle className="w-5 h-5 mr-2" /> Cảnh báo Xung Đột Thời Gian!
-                            </p>
-                            <p className="text-sm">{conflictMessage}</p>
+                    {/* Phần Quy tắc Tuần (Weekly Rules) */}
+                    <h3 className="text-xl font-semibold text-gray-700 flex items-center mb-3">
+                        <Calendar size={20} className="mr-2" /> Quy tắc Ca làm theo Tuần
+                    </h3>
+
+                    {/* Tabs cho các ngày trong tuần */}
+                    <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200">
+                        {DAYS_OF_WEEK.map(day => (
+                            <button
+                                key={day.key}
+                                type="button"
+                                onClick={() => setActiveDay(day.key)}
+                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition duration-150 ${activeDay === day.key
+                                    ? 'bg-white border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                    }`}
+                            >
+                                {day.name} ({form.weeklyRules[day.key]?.length || 0} phiên)
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Chi tiết Phiên làm việc của Ngày đang chọn */}
+                    <div className="space-y-4">
+                        <div className='flex justify-between items-center'>
+                            <h4 className="text-lg font-medium text-gray-700">{DAYS_OF_WEEK.find(d => d.key === activeDay)?.name}</h4>
+                            <button
+                                type="button"
+                                onClick={handleAddSession}
+                                className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-md"
+                            >
+                                <Plus size={16} className="mr-1" /> Thêm Phiên
+                            </button>
+                        </div>
+
+                        {(form.weeklyRules[activeDay] || []).length === 0 ? (
+                            <div className="p-4 text-center text-gray-500 bg-gray-50 border border-dashed rounded-lg">
+                                Chưa có phiên làm việc nào cho ngày này.
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {(form.weeklyRules[activeDay] || []).map((session, index) => (
+                                    <SessionCard
+                                        key={session._id || index}
+                                        session={session}
+                                        index={index}
+                                        dayKey={activeDay}
+                                        onRemove={handleRemoveSession}
+                                        onChange={handleSessionChange}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer / Nút Lưu */}
+                    {formError && (
+                        <div className="p-3 bg-red-100 text-red-700 rounded-lg flex items-center">
+                            <AlertTriangle size={20} className="mr-2" /> {formError}
                         </div>
                     )}
-
-                    {/* API/Submit Error */}
-                    {error && !conflictMessage && (
-                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded" role="alert">
-                            <p className="font-bold">Lỗi</p>
-                            <p>{error}</p>
-                        </div>
-                    )}
-
-                    <div className="flex justify-end space-x-3 pt-4 border-t">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                        >
-                            Hủy
-                        </button>
+                    <div className="pt-4 border-t flex justify-end">
                         <button
                             type="submit"
-                            disabled={isLoading || shiftTypes.length === 0 || !!conflictMessage}
-                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                            disabled={saving}
+                            className={`flex items-center px-6 py-3 text-white font-semibold rounded-lg transition duration-150 ${saving ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700 shadow-lg'
+                                }`}
                         >
-                            {isLoading ? 'Đang lưu...' : (isEdit ? 'Cập Nhật' : 'Tạo Mới')}
+                            {saving ? (
+                                <>Đang Lưu...</>
+                            ) : (
+                                <><Save size={20} className="mr-2" /> {isEdit ? 'Cập nhật' : 'Tạo mới'}</>
+                            )}
                         </button>
                     </div>
                 </form>
@@ -386,303 +426,382 @@ const PolicyForm: React.FC<PolicyFormProps> = ({ userId, shiftTypes, bindings, i
     );
 };
 
-
-// --- Main Page Component ---
-
-const UserShiftPolicyPage: React.FC = () => {
-    // Giá trị userId giả lập. Trong ứng dụng thực tế, giá trị này sẽ được lấy từ Auth/Context.
-    // Lưu ý: User ID phải là ObjectId hợp lệ (24 ký tự hex) để NestJS/Mongoose chấp nhận.
-    const [userId, setUserId] = useState('65f3f9829e32a24d2d46e297');
-
-    const [bindings, setBindings] = useState<UserPolicyBinding[]>([]);
-    const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]); // Danh sách Policy Code
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingBinding, setEditingBinding] = useState<UserPolicyBinding | null>(null);
-    const [inputUserId, setInputUserId] = useState(userId); // Dùng để nhập
-    const [isUserIdValid, setIsUserIdValid] = useState(true);
-
-    const isMongoId = (str: string) => /^[0-9a-fA-F]{24}$/.test(str);
-
-    // Tải danh sách Shift Types (Policy Code)
-    const fetchShiftTypes = useCallback(async () => {
-        try {
-            const types = await shiftTypeApi.findAllCodes();
-            setShiftTypes(types);
-        } catch (err: any) {
-            console.error('Lỗi tải Shift Types:', err);
-            // Không set global error, chỉ cảnh báo
-        }
-    }, []);
-
-    // Tải danh sách Bindings theo userId và Kiểm tra xung đột (tính toán client-side)
-    const fetchBindings = useCallback(async (currentUserId: string) => {
-        if (!isMongoId(currentUserId)) {
-            setBindings([]);
-            setError("User ID không hợp lệ (cần 24 ký tự hex).");
-            setIsLoading(false);
-            return;
-        }
-
-        setIsLoading(true);
-        setError(null);
-        try {
-            // API Call: GET /user-policy-bindings?userId=...&policyType=SHIFT_TYPE
-            const data = await userPolicyApi.findAll(currentUserId);
-
-            // Sắp xếp theo effectiveFrom
-            const sortedItems = data.items.sort((a, b) =>
-                (a.effectiveFrom || FROM_MIN).localeCompare(b.effectiveFrom || FROM_MIN)
-            );
-
-            // --- CLIENT-SIDE OVERLAP CHECK (Sau khi tải dữ liệu) ---
-            const bindingsWithConflictStatus: UserPolicyBinding[] = sortedItems.map((bindingA, index) => {
-                let conflictsWith: string[] = [];
-
-                for (let i = 0; i < sortedItems.length; i++) {
-                    const bindingB = sortedItems[i];
-                    if (bindingA._id === bindingB._id) continue; // Bỏ qua chính nó
-
-                    const hasOverlap = overlaps(
-                        bindingA.effectiveFrom, bindingA.effectiveTo,
-                        bindingB.effectiveFrom, bindingB.effectiveTo
-                    );
-
-                    if (hasOverlap) {
-                        conflictsWith.push(bindingB.policyCode);
-                    }
-                }
-
-                // Loại bỏ trùng lặp và gán trạng thái
-                const uniqueConflicts = Array.from(new Set(conflictsWith));
-                return {
-                    ...bindingA,
-                    isConflicting: uniqueConflicts.length > 0,
-                    conflictsWith: uniqueConflicts,
-                };
-            });
-
-
-            setBindings(bindingsWithConflictStatus);
-
-        } catch (err: any) {
-            console.error(err);
-            setError(`Không thể tải ràng buộc: ${err.message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    // Effect khởi tạo
-    useEffect(() => {
-        fetchShiftTypes();
-    }, [fetchShiftTypes]);
-
-    // Effect tải bindings khi userId thay đổi
-    useEffect(() => {
-        if (isMongoId(userId)) {
-            fetchBindings(userId);
-        }
-    }, [userId, fetchBindings]);
-
-
-    const handleSave = async (data: CreatePolicyBindingDto, id?: string) => {
-        if (!isMongoId(data.userId)) {
-            throw new Error("User ID không hợp lệ.");
-        }
-
-        if (id) {
-            // API Call: PATCH /user-policy-bindings/:id
-            await userPolicyApi.update(id, data);
-        } else {
-            // API Call: POST /user-policy-bindings
-            await userPolicyApi.create(data);
-        }
-        await fetchBindings(userId);
-    };
-
-    const handleDelete = async (id: string) => {
-        // Thay thế window.confirm bằng modal UI tùy chỉnh trong ứng dụng thực tế
-        const confirmed = window.confirm('Bạn có chắc chắn muốn xóa Ràng buộc chính sách này không?');
-
-        if (confirmed) {
-            try {
-                // API Call: DELETE /user-policy-bindings/:id
-                await userPolicyApi.delete(id);
-                await fetchBindings(userId);
-            } catch (err: any) {
-                console.error('Xóa thất bại:', err);
-                setError(`Xóa thất bại: ${err.message}`);
-            }
-        }
-    };
-
-    const handleEdit = (binding: UserPolicyBinding) => {
-        setEditingBinding(binding);
-        setIsModalOpen(true);
-    };
-
-    const handleCreate = () => {
-        setEditingBinding(null);
-        if (!isMongoId(userId)) {
-            setError("Vui lòng nhập một User ID hợp lệ (24 ký tự hex) trước khi tạo.");
-            return;
-        }
-        setIsModalOpen(true);
-    };
-
-    const handleUserIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setInputUserId(value);
-        setIsUserIdValid(isMongoId(value));
-        if (isMongoId(value)) {
-            setError(null);
-            setUserId(value); // Cập nhật userId chính thức và trigger fetch
-        }
-    };
-
+// --- Component Card cho một Phiên làm việc (ShiftSession) ---
+const SessionCard = ({ session, index, dayKey, onRemove, onChange }: {
+    session: ShiftSession;
+    index: number;
+    dayKey: string;
+    onRemove: (dayKey: string, index: number) => void;
+    onChange: (dayKey: string, index: number, field: keyof ShiftSession, value: string | number | boolean) => void;
+}) => {
+    // Helper để tạo input number
+    const NumberInput = ({ field, label, helpText, min = 0 }: { field: keyof ShiftSession, label: string, helpText: string, min?: number }) => (
+        <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{label} (phút)</label>
+            <input
+                type="number"
+                min={min}
+                value={session[field] as number ?? min}
+                onChange={(e) => onChange(dayKey, index, field, e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                title={helpText}
+            />
+            <p className="text-xs text-gray-400 mt-1">{helpText}</p>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <h1 className="text-3xl font-extrabold text-gray-900 mb-4 sm:mb-0">
-                    <Clock className="w-7 h-7 inline-block mr-2 text-indigo-600" /> Gán Ca Làm Cho Người Dùng
-                </h1>
+        <div className="p-4 border border-blue-200 rounded-xl bg-blue-50 shadow-sm relative">
+            <h5 className="text-base font-bold text-blue-800 mb-3 flex items-center justify-between">
+                Phiên {index + 1}
                 <button
-                    onClick={handleCreate}
-                    disabled={!isUserIdValid || shiftTypes.length === 0}
-                    className="flex items-center px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 transition duration-150 disabled:bg-indigo-400"
+                    type="button"
+                    onClick={() => onRemove(dayKey, index)}
+                    className="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-100"
+                    title="Xóa phiên này"
                 >
-                    <Plus className="w-5 h-5 mr-2" /> Gán Ca Mới
+                    <Trash2 size={18} />
                 </button>
-            </header>
+            </h5>
 
-            {/* User ID Input */}
-            <div className="mb-6 p-4 bg-white rounded-xl shadow-lg border border-indigo-200">
-                <label className="block text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                    <User className="w-5 h-5 mr-2 text-indigo-500" />
-                    Người Dùng Đang Quản Lý
-                </label>
-                <input
-                    type="text"
-                    value={inputUserId}
-                    onChange={handleUserIdChange}
-                    placeholder="Nhập User ID (MongoDB ObjectId 24 ký tự)"
-                    className={`w-full p-3 border rounded-lg font-mono text-sm shadow-inner transition ${isUserIdValid ? 'border-gray-300 focus:border-indigo-500' : 'border-red-500 focus:border-red-500'
-                        }`}
-                />
-                {!isUserIdValid && inputUserId.length > 0 && (
-                    <p className="text-sm text-red-500 mt-2">⚠️ User ID phải là 24 ký tự hex hợp lệ (MongoDB ObjectId).</p>
-                )}
-                {shiftTypes.length === 0 && (
-                    <p className="text-sm text-yellow-600 mt-2">⚠️ Cần tạo Shift Types trước khi gán ca làm.</p>
-                )}
+            {/* Dòng 1: Cấu hình cơ bản */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 border-b pb-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mã Phiên</label>
+                    <select
+                        value={session.code}
+                        onChange={(e) => onChange(dayKey, index, 'code', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        {SESSION_CODES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bắt đầu (HH:mm)</label>
+                    <input
+                        type="time"
+                        value={session.start}
+                        onChange={(e) => onChange(dayKey, index, 'start', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kết thúc (HH:mm)</label>
+                    <input
+                        type="time"
+                        value={session.end}
+                        onChange={(e) => onChange(dayKey, index, 'end', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+                <div className="flex items-center justify-center pt-4">
+                    <label className="text-sm font-medium text-gray-700 mr-2">Tính công:</label>
+                    <input
+                        type="checkbox"
+                        checked={session.required}
+                        onChange={(e) => onChange(dayKey, index, 'required', e.target.checked)}
+                        className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                </div>
             </div>
 
-            {error && (
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6" role="alert">
-                    <p className="font-bold">Lỗi Dữ Liệu</p>
-                    <p>{error}</p>
-                </div>
-            )}
+            {/* Dòng 2: Cấu hình mới (Grace, Break, Max Early/Late) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <NumberInput
+                    field="graceInMins"
+                    label="Grace IN"
+                    helpText="Cho phép vào trễ tối đa (phút)"
+                />
+                <NumberInput
+                    field="graceOutMins"
+                    label="Grace OUT"
+                    helpText="Cho phép ra sớm tối đa (phút)"
+                />
+                <NumberInput
+                    field="breakMinutes"
+                    label="Giờ Nghỉ"
+                    helpText="Thời gian nghỉ giữa phiên (phút)"
+                />
+                <NumberInput
+                    field="maxCheckInEarlyMins"
+                    label="Max IN Sớm"
+                    helpText="Vào sớm tối đa (phút) được chấp nhận"
+                />
+                <NumberInput
+                    field="maxCheckOutLateMins"
+                    label="Max OUT Trễ"
+                    helpText="Ra trễ tối đa (phút) được chấp nhận"
+                />
+            </div>
+        </div>
+    );
+};
 
-            <div className="bg-white shadow-xl rounded-xl overflow-hidden mt-8">
-                <div className="bg-gray-100 p-4 border-b">
-                    <h3 className="text-xl font-semibold text-gray-800">
-                        Danh Sách Ràng Buộc Ca Làm (Policy Type: SHIFT_TYPE)
-                    </h3>
-                    <p className="text-sm text-gray-500">Hiển thị các ca làm được gán cho User ID: <code className="font-mono text-sm">{userId}</code></p>
-                </div>
-                {isLoading ? (
-                    <div className="p-8 text-center text-gray-500">Đang tải dữ liệu ràng buộc...</div>
-                ) : (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/4">Mã Ca (Policy Code)</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/4">Tên Ca</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/4">Hiệu Lực Từ (From)</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/4">Hiệu Lực Đến (To)</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider w-1/12">Hành Động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {bindings.length > 0 ? (
-                                bindings.map((binding) => {
-                                    const shiftType = shiftTypes.find(st => st.code === binding.policyCode);
-                                    const effectTo = binding.effectiveTo === TO_MAX || binding.effectiveTo === null
-                                        ? 'Vô thời hạn'
-                                        : binding.effectiveTo;
+// --- Trang chính ---
+const ShiftTypePage = () => {
+    const { shiftTypes, isLoading, error, handleSave, handleDelete } = useShiftTypes();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null);
+    const [confirmingDelete, setConfirmingDelete] = useState<ShiftType | null>(null);
+    const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
-                                    return (
-                                        <tr
-                                            key={binding._id}
-                                            className={`hover:bg-gray-50 transition ${binding.isConflicting ? 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500' : ''}`}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-700">
-                                                {binding.isConflicting && <AlertTriangle className="w-4 h-4 inline-block mr-2 text-red-500">
-                                                    <title>Xung đột với: {binding.conflictsWith?.join(', ')}</title>
-                                                </AlertTriangle>}
-                                                {binding.policyCode}
+    const openCreateModal = () => {
+        setEditingShiftType(null);
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (shift: ShiftType) => {
+        setEditingShiftType(shift);
+        setIsModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!confirmingDelete?._id) return;
+        try {
+            await handleDelete(confirmingDelete._id);
+            setActionMessage({ type: 'success', message: `Đã xóa loại ca làm ${confirmingDelete.name} thành công.` });
+            setConfirmingDelete(null);
+        } catch (err: any) {
+            setActionMessage({ type: 'error', message: err.message });
+            setConfirmingDelete(null);
+        }
+    };
+
+    const handleFormSave = async (data: ShiftType) => {
+        try {
+            await handleSave(data);
+            setActionMessage({ type: 'success', message: `${data._id ? 'Cập nhật' : 'Tạo mới'} loại ca làm ${data.name} thành công.` });
+        } catch (err: any) {
+            setActionMessage({ type: 'error', message: err.message });
+            throw err; // Ném lỗi để form có thể xử lý
+        }
+    };
+
+    // Clear message sau 5s
+    useEffect(() => {
+        if (actionMessage) {
+            const timer = setTimeout(() => setActionMessage(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [actionMessage]);
+
+    return (
+        <div className="p-4 sm:p-8 bg-gray-50 min-h-screen font-sans">
+            <div className="max-w-7xl mx-auto">
+                <h1 className="text-3xl font-bold mb-6 text-gray-800 border-b pb-3 flex items-center gap-3">
+                    <Layers size={28} className='text-blue-600' /> Quản Lý Loại Ca Làm (Shift Types)
+                </h1>
+
+                {actionMessage && (
+                    <div className={`p-4 mb-4 rounded-lg shadow-md flex items-center ${actionMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                        <AlertTriangle size={20} className="mr-2" /> {actionMessage.message}
+                    </div>
+                )}
+
+                <div className="flex justify-end mb-4">
+                    <button
+                        onClick={openCreateModal}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition"
+                    >
+                        <Plus size={20} className="mr-2" /> Tạo Loại Ca Mới
+                    </button>
+                </div>
+
+                {isLoading && (
+                    <div className="p-8 text-center text-gray-600 bg-white rounded-xl shadow">Đang tải dữ liệu...</div>
+                )}
+
+                {error && (
+                    <div className="p-4 bg-red-100 text-red-700 rounded-lg flex items-center">
+                        <AlertTriangle size={20} className="mr-2" /> Lỗi tải dữ liệu: {error}
+                    </div>
+                )}
+
+                {!isLoading && !error && (
+                    <div className="bg-white shadow-xl rounded-xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Code</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-3/12">Tên Loại Ca</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-4/12">Quy Tắc Ca (Ví dụ)</th>
+
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {shiftTypes.length > 0 ? (
+                                    shiftTypes.map((shift) => (
+                                        <tr key={shift._id} className="hover:bg-gray-50 transition">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shift.code}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{shift.name}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                <div className="space-y-2">
+                                                    {DAYS_OF_WEEK.map(day => {
+                                                        const sessions = shift.weeklyRules[day.key];
+                                                        // Chỉ hiển thị những ngày có ca làm việc
+                                                        if (!sessions || sessions.length === 0) return null;
+
+                                                        return (
+                                                            <div key={day.key} className="flex items-start text-xs">
+                                                                {/* Tên Ngày */}
+                                                                <span className="font-semibold w-16 flex-shrink-0 text-gray-800">
+                                                                    {day.name}:
+                                                                </span>
+
+                                                                {/* Danh sách các Ca (Sessions) dưới dạng thẻ */}
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {sessions.map((session, index) => (
+                                                                        <span
+                                                                            key={index}
+                                                                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${session.required ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+                                                                                }`}
+                                                                            title={session.required ? 'Ca bắt buộc' : 'Ca không bắt buộc'}
+                                                                        >
+                                                                            {session.code} ({session.start} - {normalizeEnd(session.end, session.code === 'OV')})
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {shiftType ? shiftType.name : <span className="text-red-500 italic">Code không tồn tại</span>}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                <Calendar className="w-4 h-4 inline-block mr-2 text-green-500" />
-                                                {binding.effectiveFrom || FROM_MIN}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                <Calendar className="w-4 h-4 inline-block mr-2 text-red-500" />
-                                                {effectTo}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-center">
                                                 <div className="flex justify-center space-x-2">
                                                     <button
-                                                        onClick={() => handleEdit(binding)}
+                                                        onClick={() => openEditModal(shift)}
                                                         className="text-indigo-600 hover:text-indigo-900 p-2 rounded-full hover:bg-indigo-50 transition"
                                                         title="Chỉnh sửa"
                                                     >
-                                                        <Pencil className="w-5 h-5" />
+                                                        <Pencil size={20} />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDelete(binding._id)}
+                                                        onClick={() => setConfirmingDelete(shift)}
                                                         className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50 transition"
                                                         title="Xóa"
                                                     >
-                                                        <Trash2 className="w-5 h-5" />
+                                                        <Trash2 size={20} />
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                        Không có ràng buộc ca làm nào cho User ID này.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                            Không có Loại Ca Làm nào được tạo.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
                 )}
             </div>
 
             {/* Modal Form */}
             {isModalOpen && (
-                <PolicyForm
-                    userId={userId}
-                    shiftTypes={shiftTypes}
-                    bindings={bindings} // Truyền danh sách bindings để check overlap
-                    initialData={editingBinding}
+                <ShiftTypeForm
+                    initialData={editingShiftType}
                     onClose={() => setIsModalOpen(false)}
-                    onSave={handleSave}
+                    onSave={handleFormSave}
+                />
+            )}
+
+            {/* Modal Xác nhận Xóa */}
+            {confirmingDelete && (
+                <ConfirmDeleteModal
+                    shift={confirmingDelete}
+                    onClose={() => setConfirmingDelete(null)}
+                    onConfirm={handleConfirmDelete}
                 />
             )}
         </div>
     );
 };
 
-export default UserShiftPolicyPage;
+export default ShiftTypePage;
+
+// --- Component Modal Xác nhận Xóa ---
+const ConfirmDeleteModal = ({ shift, onClose, onConfirm }: {
+    shift: ShiftType;
+    onClose: () => void;
+    onConfirm: () => void;
+}) => (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-red-600 mb-4 flex items-center">
+                <AlertTriangle size={24} className="mr-2" /> Xác nhận Xóa
+            </h2>
+            <p className="text-gray-700 mb-6">
+                Bạn có chắc chắn muốn xóa Loại Ca Làm <span className="font-semibold text-gray-900">"{shift.name}" ({shift.code})</span> không? Thao tác này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end space-x-3">
+                <button
+                    onClick={onClose}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition"
+                >
+                    Hủy
+                </button>
+                <button
+                    onClick={onConfirm}
+                    className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition shadow-md"
+                >
+                    Xóa Vĩnh Viễn
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
+function normalizeEnd(end: string, isOV: boolean): string {
+    if (!isOV || typeof end !== 'string' || !end.includes(':')) return end;
+
+    const [hoursStr, minutesStr] = end.split(':');
+    const hours = parseInt(hoursStr, 10);
+
+    // Nếu giờ lớn hơn hoặc bằng 24, trừ 24 để hiển thị giờ trong ngày
+    if (hours >= 24) {
+        const normalizedHours = hours - 24;
+        return `${String(normalizedHours).padStart(2, '0')}:${minutesStr}`;
+    }
+    return end;
+}
+
+/**
+ * Chuyển đổi giờ kết thúc từ form sang format backend (>24:00:mm) nếu là ca gối ngày.
+ * CHỈ ÁP DỤNG CHO CA 'OV'.
+ * Logic: Nếu là ca OV, mặc định nó gối ngày, ta cộng 24h vào end time.
+ * @param end Giờ kết thúc từ form (HH:mm)
+ * @param isOV Mã phiên có phải là OV không
+ * @returns string HH:mm (hoặc >24:00:mm)
+ */
+function denormalizeEnd(end: string, isOV: boolean): string {
+    if (!isOV || !end || !end.includes(':')) return end;
+
+    const [endH, endM] = end.split(':').map(Number);
+
+    // Nếu là ca OV, luôn luôn cộng thêm 24 giờ cho backend
+    const denormalizedHours = endH + 24;
+    return `${String(denormalizedHours).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+}
+
+function normalizeWeeklyRules(rules: WeeklyRules): WeeklyRules {
+    const normalized: WeeklyRules = {};
+    for (const [dayKey, sessions] of Object.entries(rules)) {
+        normalized[dayKey] = (sessions || []).map(session => ({
+            ...session,
+            // Áp dụng normalize cho end time DỰA VÀO session.code
+            end: normalizeEnd(session.end, session.code === 'OV'),
+        }));
+    }
+    return normalized;
+}
+function getDayNameByKey(key: string): string {
+    const day = DAYS_OF_WEEK.find(d => d.key === key);
+    return day ? day.name : 'Không xác định';
+}
