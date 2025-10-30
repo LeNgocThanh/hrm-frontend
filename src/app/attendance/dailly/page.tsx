@@ -8,6 +8,9 @@ import { UserWithOrganization } from "@/types";
 import { Organization as OrganizationType } from "@/types/organization";
 import { getOrganizations } from "@/lib/api/organizations";
 import useSWR from "swr";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 
 // Env
@@ -530,6 +533,50 @@ export default function DailyAttendancePage() {
     }
   };
 
+  const buildExportRows = (rows: DailyRow[], tz: string) => {
+    return rows.map((r) => {
+      const am = pickInOut(r.am, tz);
+      const pm = pickInOut(r.pm, tz);
+      const ov = pickInOut(r.ov, tz);
+
+      // Nhãn trạng thái (đã có STATUS_OPTIONS_AT)
+      const statusLabel = STATUS_OPTIONS_AT.find(o => o.value === r.status)?.label || '';
+
+      // Nếu sửa tay → “Đã chỉnh sửa”, ngược lại để trống/“”
+      const manualEdited = r.isManualEdit ? 'Đã chỉnh sửa' : '';
+
+      return {
+        Date: r.dateKey,                          // YYYY-MM-DD
+        ShiftType: r.shiftType || '',
+        AM_IN: am.in,
+        AM_OUT: am.out,
+        PM_IN: pm.in,
+        PM_OUT: pm.out,
+        OV_IN: ov.in,
+        OV_OUT: ov.out,
+        WorkedMinutes: minutesOrBlank(r.workedMinutes),
+        LateMinutes: minutesOrBlank(r.lateMinutes),          // TÁCH RIÊNG
+        EarlyLeaveMinutes: minutesOrBlank(r.earlyLeaveMinutes), // TÁCH RIÊNG
+        Status: statusLabel,
+        ManualEdited: manualEdited,               // “Đã chỉnh sửa” nếu isManualEdit = true
+        EditNote: r.editNote || '',               // TÁCH RIÊNG 1 CỘT
+        LeaveMinutes: minutesOrBlank(r.timeEntrySummary?.leaveMinutes),
+        OvertimeMinutes: minutesOrBlank(r.timeEntrySummary?.overtimeMinutes),
+      };
+    });
+  };
+
+  const handleExportCsv = () => {
+    if (!selectedUserId || dailyRows.length === 0) return;
+
+    const data = buildExportRows(dailyRows, currentUserTz);
+    // Gợi ý tên file: UserName_YYYYMMDD-YYYYMMDD.csv
+    const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    const filename = `Attendance_${userName}_${range}.csv`;
+    downloadCsv(filename, data);
+  };
+
   const selectedUser = allUsers.find(u => u._id === selectedUserId);
   const isLoadingAll = isLoadingUsers || isLoadingOrganizations;
 
@@ -629,6 +676,22 @@ export default function DailyAttendancePage() {
     await fetchAttendanceDaily(selectedUserId, filterFrom, filterTo);
   };
 
+  const handleExportXlsx = () => {
+    if (!selectedUserId || dailyRows.length === 0) return;
+    const data = buildExportRows(dailyRows, currentUserTz);
+    const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    exportToXlsx(data, `Attendance_${userName}_${range}.xlsx`);
+  };
+
+  const handleExportPdf = async () => {
+    if (!selectedUserId || dailyRows.length === 0) return;
+    const data = buildExportRows(dailyRows, currentUserTz);
+    const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    await exportToPdf(data, `Attendance_${userName}_${range}.pdf`);
+  };
+
 
   return (
     <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
@@ -716,6 +779,41 @@ export default function DailyAttendancePage() {
         >
           {isLoading ? 'Đang Tải...' : 'Xem Dữ Liệu'}
         </button>
+        <button
+          onClick={handleExportCsv}
+          disabled={!selectedUserId || dailyRows.length === 0}
+          className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
+          title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export CSV')}
+        >
+          Export CSV
+        </button>
+        <button
+          onClick={handleExportXlsx}
+          disabled={!selectedUserId || dailyRows.length === 0}
+          className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export Excel')}
+        >
+          Export Excel
+        </button>
+
+        <button
+          onClick={handleExportPdf}
+          disabled={!selectedUserId || dailyRows.length === 0}
+          className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-red-600 hover:bg-red-700'
+            }`}
+          title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export PDF')}
+        >
+          Export PDF
+        </button>
+
       </div>
 
       <DailyTable dailyRows={dailyRows} currentUserTz={currentUserTz} isLoading={isLoading} getSessionsForDate={getSessionsForDate} onManualEdit={openManualEdit} />
@@ -992,15 +1090,18 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
               </td>
               {/* Trạng Thái */}
               <td className="px-3 py-3 whitespace-nowrap text-center">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusStyle(row.status)}`}>
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusStyle(row.status)}`}>
                   {STATUS_OPTIONS_AT.find(option => option.value === row.status)?.label || "N/A"}
                   {row.isManualEdit && (
-                    <span
-                      title={row.editNote && row.editNote.trim() !== '' ? row.editNote : 'Sửa tay (không có ghi chú)'}
-                      className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-help align-middle"
-                    >
-                      E
-                    </span>
+                    <>
+                      <span
+                        title={row.editNote && row.editNote.trim() !== '' ? row.editNote : 'Sửa tay (không có ghi chú)'}
+                        className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-help align-middle"
+                      >
+                        E
+                      </span>
+                      <span className="text-[10px] text-indigo-700 font-medium">(Đã chỉnh sửa)</span>
+                    </>
                   )}
                 </span>
               </td>
@@ -1044,5 +1145,159 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
     </div>
   );
 };
+
+function pickInOut(session?: DailySessionActual, tz: string = DEFAULT_TIMEZONE) {
+  if (!session) return { in: '', out: '' };
+  const inIso = session.checkIn_Edit || session.firstIn || '';
+  const outIso = session.checkOut_Edit || session.lastOut || '';
+
+  const inStr = inIso ? toHHmmLocal(inIso, tz) : '';
+  const outStr = outIso
+    ? (inIso ? toHHmmOverNight(outIso, inIso, tz) : toHHmmLocal(outIso, tz))
+    : '';
+
+  return { in: inStr, out: outStr };
+}
+
+function minutesOrBlank(n?: number) {
+  return typeof n === 'number' && !Number.isNaN(n) ? String(n) : '';
+}
+
+function csvEscape(val: string) {
+  // Escape theo RFC 4180 cơ bản
+  if (val == null) return '';
+  const needsQuotes = /[",\n]/.test(val);
+  const v = String(val).replace(/"/g, '""');
+  return needsQuotes ? `"${v}"` : v;
+}
+
+const buildExportRows = (rows: DailyRow[], tz: string) => {
+  return rows.map((r) => {
+    const am = pickInOut(r.am, tz);
+    const pm = pickInOut(r.pm, tz);
+    const ov = pickInOut(r.ov, tz);
+
+    const statusLabel = STATUS_OPTIONS_AT.find(o => o.value === r.status)?.label || '';
+    const manualEdited = r.isManualEdit ? 'Đã chỉnh sửa' : '';
+
+    return {
+      Date: r.dateKey,
+      ShiftType: r.shiftType || '',
+      AM_IN: am.in,
+      AM_OUT: am.out,
+      PM_IN: pm.in,
+      PM_OUT: pm.out,
+      OV_IN: ov.in,
+      OV_OUT: ov.out,
+      WorkedMinutes: minutesOrBlank(r.workedMinutes),
+      LateMinutes: minutesOrBlank(r.lateMinutes),             // tách riêng
+      EarlyLeaveMinutes: minutesOrBlank(r.earlyLeaveMinutes), // tách riêng
+      Status: statusLabel,
+      ManualEdited: manualEdited,                              // “Đã chỉnh sửa” nếu isManualEdit = true
+      EditNote: r.editNote || '',                              // tách riêng
+      LeaveMinutes: minutesOrBlank(r.timeEntrySummary?.leaveMinutes ?? undefined),
+      OvertimeMinutes: minutesOrBlank(r.timeEntrySummary?.overtimeMinutes ?? undefined),
+    };
+  });
+};
+
+// === EXCEL (XLSX) ===
+function exportToXlsx(rows: Array<Record<string, string | number>>, filename: string) {
+  if (!rows?.length) return;
+  const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
+  // Tự co giãn cột đơn giản theo độ dài header
+  const headers = Object.keys(rows[0]);
+  const colWidths = headers.map(h => ({ wch: Math.max(10, h.length + 2) }));
+  (ws as any)['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+  XLSX.writeFile(wb, filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`);
+}
+
+// === PDF (jsPDF + autotable, có font Unicode) ===
+async function loadFontAndSet(doc: jsPDF) {
+  // Cần đặt file font tại: /public/fonts/NotoSans-Regular.ttf
+  // Có thể đổi tên font theo file thực tế.
+  const fontUrl = '/fonts/NotoSans-Regular.ttf';
+  const res = await fetch(fontUrl);
+  const buf = await res.arrayBuffer();
+
+  // Convert ArrayBuffer -> base64 cho jsPDF.addFileToVFS
+  const base64 = arrayBufferToBase64(buf);
+
+  // Đăng ký font và set làm font hiện hành
+  // 'NotoSans' chỉ là tên alias tuỳ chọn, miễn nhất quán 2 dòng dưới.
+  (doc as any).addFileToVFS('NotoSans-Regular.ttf', base64);
+  (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+  doc.setFont('NotoSans', 'normal');
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+async function exportToPdf(rows: Array<Record<string, any>>, filename: string) {
+  if (!rows?.length) return;
+
+  // Chọn cột hiển thị để vừa trang A4 (landscape)
+  // Nếu muốn đủ cột, vẫn được – nhưng PDF sẽ nhỏ chữ hơn.
+  const columns = [
+    'Date', 'ShiftType', 'AM_IN', 'AM_OUT', 'PM_IN', 'PM_OUT',
+    'WorkedMinutes', 'LateMinutes', 'EarlyLeaveMinutes',
+    'Status', 'ManualEdited', 'EditNote'
+  ];
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+  // Nạp font Unicode (quan trọng để hiển thị tiếng Việt)
+  await loadFontAndSet(doc);
+
+  const head = [columns];
+  const body = rows.map(r => columns.map(c => r[c] ?? ''));
+
+  doc.setFontSize(10);
+  doc.text('Bảng công (xuất từ hệ thống)', 40, 32);
+
+  (doc as any).autoTable({
+    head,
+    body,
+    startY: 44,
+    styles: { font: 'NotoSans', fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+    headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'normal' },
+    columnStyles: {
+      EditNote: { cellWidth: 220 }, // để ghi chú không bị vỡ dòng quá nhiều
+    },
+    didParseCell: (data: any) => {
+      // Ép nhỏ hơn cho cột dày chữ
+      if (data.column.index >= 10) data.cell.styles.fontSize = 8;
+    },
+    margin: { top: 36, right: 24, bottom: 24, left: 24 },
+    tableWidth: 'auto',
+  });
+
+  doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.map(csvEscape).join(','),
+    ...rows.map(r => headers.map(h => csvEscape(String(r[h] ?? ''))).join(','))
+  ];
+  // BOM để Excel hiển thị tiếng Việt đúng
+  const blob = new Blob(["\uFEFF" + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 
