@@ -290,8 +290,8 @@ export default function DailyAttendancePage() {
   const currentDayKey = toDateKeyLocal(now, DEFAULT_TIMEZONE);
   const firstDayKey = firstDayOfMonth(currentDayKey);
   // Lấy ID người dùng đầu tiên (hoặc mặc định rỗng nếu chưa có)
-  
- const [selectedUserId, setSelectedUserId] = useState<string>("");
+
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [dailyRows, setDailyRows] = useState<DailyRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -301,9 +301,9 @@ export default function DailyAttendancePage() {
 
   const [shiftTypes, setShiftTypes] = useState<Record<string, ShiftType>>({});
 
-  
+
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
-  
+
 
   const [nameFilter, setNameFilter] = useState<string>('');
 
@@ -312,42 +312,56 @@ export default function DailyAttendancePage() {
   const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
   const initialUserPickedRef = React.useRef(false);
 
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualEditing, setManualEditing] = useState<{ userId: string; dateKey: string } | null>(null);
+  const [manualForm, setManualForm] = useState<{
+    AM: { checkIn: string; checkOut: string };
+    PM: { checkIn: string; checkOut: string };
+    OV: { checkIn: string; checkOut: string };
+    editNote: string;
+  }>({
+    AM: { checkIn: '', checkOut: '' },
+    PM: { checkIn: '', checkOut: '' },
+    OV: { checkIn: '', checkOut: '' },
+    editNote: '',
+  });
+
 
   // useEffect để tải danh sách người dùng
   // USERS via SWR
-const {
-  data: usersData,
-  error: usersError,
-  isLoading: isLoadingUsers,
-} = useSWR<UserWithOrganization[]>(
-  `${API_BASE}/users/withOrganizationName`,
-  fetcher<UserWithOrganization[]>,
-  { revalidateOnFocus: false } // tuỳ chọn
-);
+  const {
+    data: usersData,
+    error: usersError,
+    isLoading: isLoadingUsers,
+  } = useSWR<UserWithOrganization[]>(
+    `${API_BASE}/users/withOrganizationName`,
+    fetcher<UserWithOrganization[]>,
+    { revalidateOnFocus: false } // tuỳ chọn
+  );
 
-const {
-  data: orgsData,
-  error: orgsError,
-  isLoading: isLoadingOrganizations,
-} = useSWR<OrganizationType[]>(
-  `${API_BASE}/organizations`,
-  fetcher<OrganizationType[]>,
-  { revalidateOnFocus: false } // tuỳ chọn
-);
-
-
-// ánh xạ dữ liệu SWR sang biến dùng trong UI
-const allUsers = usersData ?? EMPTY_USERS;
-const organizations = orgsData ?? EMPTY_ORGS;
+  const {
+    data: orgsData,
+    error: orgsError,
+    isLoading: isLoadingOrganizations,
+  } = useSWR<OrganizationType[]>(
+    `${API_BASE}/organizations`,
+    fetcher<OrganizationType[]>,
+    { revalidateOnFocus: false } // tuỳ chọn
+  );
 
 
-// Khi SWR usersData về, nếu chưa có selectedUserId thì chọn user đầu tiên
-useEffect(() => {
-  if (!initialUserPickedRef.current && allUsers.length > 0) {
-    setSelectedUserId(allUsers[0]._id);
-    initialUserPickedRef.current = true; // đánh dấu đã chọn
-  }
-}, [allUsers]);
+  // ánh xạ dữ liệu SWR sang biến dùng trong UI
+  const allUsers = usersData ?? EMPTY_USERS;
+  const organizations = orgsData ?? EMPTY_ORGS;
+
+
+  // Khi SWR usersData về, nếu chưa có selectedUserId thì chọn user đầu tiên
+  useEffect(() => {
+    if (!initialUserPickedRef.current && allUsers.length > 0) {
+      setSelectedUserId(allUsers[0]._id);
+      initialUserPickedRef.current = true; // đánh dấu đã chọn
+    }
+  }, [allUsers]);
 
 
   useEffect(() => {
@@ -390,19 +404,24 @@ useEffect(() => {
   }, [filteredUsers, selectedUserId]);
 
   function isObjectWithId(obj: any): obj is HasId {
-  return typeof obj === 'object' && obj !== null && '_id' in obj;
-}
+    return typeof obj === 'object' && obj !== null && '_id' in obj;
+  }
 
   const fetchShiftType = async (code: string) => {
     if (!code || shiftTypes[code]) return;
 
     try {
-      const response = await fetch(`${API_BASE}/shift-types/by-code/${code}`);
-      if (!response.ok) {
-        throw new Error("Lỗi khi lấy thông tin ca làm việc");
+      if (code === 'NO') {
+        return
       }
-      const shiftType: ShiftType = await response.json();
-      setShiftTypes(prev => ({ ...prev, [code]: shiftType }));
+      else {
+        const response = await fetch(`${API_BASE}/shift-types/by-code/${code}`);
+        if (!response.ok) {
+          throw new Error("Lỗi khi lấy thông tin ca làm việc");
+        }
+        const shiftType: ShiftType = await response.json();
+        setShiftTypes(prev => ({ ...prev, [code]: shiftType }));
+      }
     } catch (error) {
       console.error("Lỗi fetch shift type: ", error);
     }
@@ -418,14 +437,14 @@ useEffect(() => {
   }, [dailyRows]);
 
   const getSessionsForDate = (dateKey: string, shiftTypeCode: string | undefined) => {
-  if (!shiftTypeCode || !shiftTypes[shiftTypeCode]) return [];
-  
-  const shiftType = shiftTypes[shiftTypeCode];
-  const date = new Date(dateKey);
-  const dayOfWeek = date.getDay().toString(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
-  
-  return shiftType.weeklyRules[dayOfWeek as keyof WeeklyRules] || [];
-};
+    if (!shiftTypeCode || !shiftTypes[shiftTypeCode]) return [];
+
+    const shiftType = shiftTypes[shiftTypeCode];
+    const date = new Date(dateKey);
+    const dayOfWeek = date.getDay().toString(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+
+    return shiftType.weeklyRules[dayOfWeek as keyof WeeklyRules] || [];
+  };
 
 
   const currentUserTz = useMemo(() => {
@@ -539,6 +558,77 @@ useEffect(() => {
     );
   }
 
+  // ADD: mở modal với dữ liệu gợi ý từ row
+  const openManualEdit = (row: DailyRow) => {
+    setManualEditing({ userId: row.userId, dateKey: row.dateKey });
+    setManualForm({
+      AM: {
+        checkIn: row?.am?.checkIn_Edit ? toHHmmLocal(row.am.checkIn_Edit, currentUserTz) :
+          row?.am?.firstIn ? toHHmmLocal(row.am.firstIn, currentUserTz) : '',
+        checkOut: row?.am?.checkOut_Edit ? toHHmmLocal(row.am.checkOut_Edit, currentUserTz) :
+          row?.am?.lastOut ? toHHmmLocal(row.am.lastOut, currentUserTz) : '',
+      },
+      PM: {
+        checkIn: row?.pm?.checkIn_Edit ? toHHmmLocal(row.pm.checkIn_Edit, currentUserTz) :
+          row?.pm?.firstIn ? toHHmmLocal(row.pm.firstIn, currentUserTz) : '',
+        checkOut: row?.pm?.checkOut_Edit ? toHHmmLocal(row.pm.checkOut_Edit, currentUserTz) :
+          row?.pm?.lastOut ? toHHmmLocal(row.pm.lastOut, currentUserTz) : '',
+      },
+      OV: {
+        checkIn: row?.ov?.checkIn_Edit ? toHHmmLocal(row.ov.checkIn_Edit, currentUserTz) :
+          row?.ov?.firstIn ? toHHmmLocal(row.ov.firstIn, currentUserTz) : '',
+        checkOut: row?.ov?.checkOut_Edit ? toHHmmLocal(row.ov.checkOut_Edit, currentUserTz) :
+          row?.ov?.lastOut ? toHHmmLocal(row.ov.lastOut, currentUserTz) : '',
+      },
+      editNote: row?.editNote ?? '',
+    });
+    setManualModalOpen(true);
+  };
+
+  // ADD: submit PUT /attendance/dailly-manual
+  const submitManualEdit = async () => {
+    if (!manualEditing || !selectedUserId) return;
+
+    const payload = {
+      userId: manualEditing.userId,
+      dateKey: manualEditing.dateKey,        // "YYYY-MM-DD"
+      tz: currentUserTz,                     // "Asia/Bangkok"
+      editNote: manualForm.editNote,
+      times: {
+        AM: {
+          checkIn: manualForm.AM.checkIn || undefined,
+          checkOut: manualForm.AM.checkOut || undefined,
+        },
+        PM: {
+          checkIn: manualForm.PM.checkIn || undefined,
+          checkOut: manualForm.PM.checkOut || undefined,
+        },
+        OV: {
+          checkIn: manualForm.OV.checkIn || undefined,
+          checkOut: manualForm.OV.checkOut || undefined,
+        },
+      },
+    };
+
+    const res = await fetch(`${API_BASE}/attendance/dailly-manual`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      alert(`Lỗi cập nhật thủ công: ${res.status} ${res.statusText}\n${t}`);
+      return;
+    }
+
+    setManualModalOpen(false);
+    setManualEditing(null);
+    // refresh bảng
+    await fetchAttendanceDaily(selectedUserId, filterFrom, filterTo);
+  };
+
 
   return (
     <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
@@ -584,13 +674,13 @@ useEffect(() => {
             disabled={filteredUsers.length === 0}
           >
             {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                    <option key={user._id} value={user._id}>
-                        {user.fullName} ({user.organizationName})
-                    </option>
-                ))
+              filteredUsers.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.fullName} ({user.organizationName})
+                </option>
+              ))
             ) : (
-                <option value="" disabled>Không có nhân viên phù hợp</option>
+              <option value="" disabled>Không có nhân viên phù hợp</option>
             )}
           </select>
         </div>
@@ -628,7 +718,73 @@ useEffect(() => {
         </button>
       </div>
 
-      <DailyTable dailyRows={dailyRows} currentUserTz={currentUserTz} isLoading={isLoading} getSessionsForDate={getSessionsForDate}/>
+      <DailyTable dailyRows={dailyRows} currentUserTz={currentUserTz} isLoading={isLoading} getSessionsForDate={getSessionsForDate} onManualEdit={openManualEdit} />
+      {manualModalOpen && manualEditing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              Sửa tay chấm công — {manualEditing.dateKey.split('-').reverse().join('/')}
+            </h3>
+
+            {(['AM', 'PM', 'OV'] as const).map(code => (
+              <div key={code} className="mb-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">Phiên {code}</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Check-in (HH:mm)</label>
+                    <input
+                      type="time"
+                      value={manualForm[code].checkIn}
+                      onChange={(e) => setManualForm(prev => ({
+                        ...prev, [code]: { ...prev[code], checkIn: e.target.value }
+                      }))}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Check-out (HH:mm)</label>
+                    <input
+                      type="time"
+                      value={manualForm[code].checkOut}
+                      onChange={(e) => setManualForm(prev => ({
+                        ...prev, [code]: { ...prev[code], checkOut: e.target.value }
+                      }))}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">Ghi chú chỉnh sửa</label>
+              <textarea
+                value={manualForm.editNote}
+                onChange={(e) => setManualForm(prev => ({ ...prev, editNote: e.target.value }))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                rows={2}
+                placeholder="Lý do chỉnh sửa..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setManualModalOpen(false); setManualEditing(null); }}
+                className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={submitManualEdit}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 shadow"
+                title="Gửi PUT /attendance/dailly-manual"
+              >
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -640,10 +796,10 @@ interface DailyTableProps {
   currentUserTz: string;
   isLoading: boolean;
   getSessionsForDate: (dateKey: string, shiftTypeCode: string | undefined) => ShiftSession[];
-  
+  onManualEdit: (row: DailyRow) => void;
 }
 
-const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoading, getSessionsForDate }) => {
+const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoading, getSessionsForDate, onManualEdit }) => {
   if (isLoading) {
     return (
       <div className="text-center py-12 text-lg text-indigo-600">
@@ -757,7 +913,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
               Quá ngày (IN/OUT)
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-             Ca thực tế
+              Ca thực tế
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Tổng Giờ Làm
@@ -767,6 +923,9 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               Trạng Thái
+            </th>
+            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+              Hành động
             </th>
             {/* CỘT MỚI: NGHỈ PHÉP & TĂNG CA NGOÀI */}
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
@@ -801,25 +960,25 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 {renderSession(row.ov)}
               </td>
               <td className="px-3 py-3 whitespace-nowrap text-center">
-  {(() => {
-    const sessions = getSessionsForDate(row.dateKey, row.shiftType);
-    if (sessions.length === 0) return '-';
-    
-    return (
-      <div className="flex flex-col space-y-1 text-xs">
-        {sessions.map((session, index) => (
-          <div 
-            key={index}
-            title={`${session.code}: ${session.start} - ${session.end}${session.breakMinutes ? ` (Nghỉ: ${session.breakMinutes}p)` : ''}`}
-            className="cursor-help"
-          >
-            {session.code}: {session.start}-{session.end}
-          </div>
-        ))}
-      </div>
-    );
-  })()}
-</td>
+                {(() => {
+                  const sessions = getSessionsForDate(row.dateKey, row.shiftType);
+                  if (sessions.length === 0) return '-';
+
+                  return (
+                    <div className="flex flex-col space-y-1 text-xs">
+                      {sessions.map((session, index) => (
+                        <div
+                          key={index}
+                          title={`${session.code}: ${session.start} - ${session.end}${session.breakMinutes ? ` (Nghỉ: ${session.breakMinutes}p)` : ''}`}
+                          className="cursor-help"
+                        >
+                          {session.code}: {session.start}-{session.end}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </td>
               {/* Tổng Giờ Làm */}
               <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium">
                 {formatMinutes(row.workedMinutes)}
@@ -836,11 +995,23 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusStyle(row.status)}`}>
                   {STATUS_OPTIONS_AT.find(option => option.value === row.status)?.label || "N/A"}
                   {row.isManualEdit && (
-                    <span title={row.editNote} className="ml-1 text-sm cursor-help">
-                      [E]
+                    <span
+                      title={row.editNote && row.editNote.trim() !== '' ? row.editNote : 'Sửa tay (không có ghi chú)'}
+                      className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-help align-middle"
+                    >
+                      E
                     </span>
                   )}
                 </span>
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap text-center">
+                <button
+                  onClick={() => onManualEdit(row)}
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 shadow"
+                  title="Sửa tay (NoSession) - không áp ca, không tính trễ/sớm"
+                >
+                  Sửa tay
+                </button>
               </td>
               {/* CỘT MỚI: NGHỈ PHÉP & TĂNG CA NGOÀI */}
               <td className="px-3 py-3 whitespace-nowrap text-center">
