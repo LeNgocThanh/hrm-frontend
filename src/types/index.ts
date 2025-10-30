@@ -13,6 +13,22 @@ export interface User {
   updatedAt: string;
 }
 
+export interface UserWithOrganization {
+  _id: string;
+  fullName: string;
+  birthDay: string; // ISO date string
+  gender: string;
+  details: string;
+  email: string;
+  phone?: string;
+  avatarUrl?: string;
+  employeeStatus: 'active' | 'inactive' | 'terminated';
+  createdAt: string;
+  updatedAt: string;
+  organizationId: string;
+  organizationName: string; 
+}
+
 export interface CreateUserData {
   fullName: string;
   birthDay: string;

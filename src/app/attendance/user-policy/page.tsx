@@ -2,14 +2,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, Clock, User, Calendar, Search, ChevronDown, ChevronUp } from 'lucide-react';
 //import { headers } from 'next/headers';
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
+import { getOrganizations } from "@/lib/api/organizations";
+import { getUsersUnderOrganizations, getUserWithOrganizationUnder } from "@/lib/api/users";
+
 
 // --- API Client Helpers (Áp dụng Exponential Backoff) ---
 
 // Vui lòng thay đổi URL API thực tế của bạn
-const USER_POLICY_BASE_URL = 'http://localhost:4000/user-policy-bindings';
-const SHIFT_TYPE_BASE_URL = 'http://localhost:4000/shift-types';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const USER_POLICY_BASE_URL = `${API_BASE}/user-policy-bindings`;
+const SHIFT_TYPE_BASE_URL = `${API_BASE}/shift-types`;
 // Thêm API endpoint cho User
-const USER_BASE_URL = 'http://localhost:4000/users'; 
+const USER_BASE_URL = `${API_BASE}/users`;
 
 const MAX_RETRIES = 3;
 
@@ -25,7 +31,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const fetcher = async <T,>(url: string): Promise<T> => {
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
-            const response = await fetch(url, {credentials: 'include'});
+            const response = await fetch(url, { credentials: 'include' });
             if (!response.ok) {
                 // Nếu là lỗi 4xx/5xx, throw ngay để không retry
                 const errorBody = await response.json().catch(() => ({ message: response.statusText }));
@@ -80,56 +86,96 @@ interface CreatePolicyBindingDto {
     effectiveTo: string;
 }
 
+async function api(path: string, opts: any = {}) {
+    const { method = "GET", query, body, headers } = opts;
+    const url = new URL(path.replace(/^\//, ""), API_BASE + "/");
+    if (query) {
+        Object.entries(query).forEach(([k, v]) => {
+            if (v != null && v !== "")
+                url.searchParams.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+        });
+    }
+    const res = await fetch(url.toString(), {
+        method,
+        headers: { Accept: "application/json, text/plain, */*", "Content-Type": "application/json", ...headers },
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: "include",
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+
+    if (!res.ok) {
+        let msg = res.statusText;
+        try {
+            const txt = await res.text();
+            if (isJson && txt) msg = (JSON.parse(txt).message || msg);
+            else if (txt) msg = txt;
+        } catch { }
+        throw new Error(msg || `HTTP ${res.status}`);
+    }
+
+    if (res.status === 204) return null;
+    let txt = "";
+    try { txt = await res.text(); } catch { return null; }
+    if (!txt || !txt.trim()) return null;
+
+    if (isJson) {
+        try { return JSON.parse(txt); } catch { return { data: txt }; }
+    }
+    return { data: txt };
+}
+
 /**
  * Custom Hook SWR đơn giản
  * @param key Khóa SWR, có thể là string URL hoặc object
  * @param fetcher Hàm fetch dữ liệu
  */
 function useSWR<T>(key: any, fetcher: (key: any) => Promise<any>) {
-  const [data, setData] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(!!key);
-  const [error, setError] = useState<any>(null);
-  // Sử dụng JSON.stringify cho key là object/array, key là string thì dùng trực tiếp
-  const fetchKey = typeof key === "string" ? key : JSON.stringify(key);
+    const [data, setData] = useState<T | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(!!key);
+    const [error, setError] = useState<any>(null);
+    // Sử dụng JSON.stringify cho key là object/array, key là string thì dùng trực tiếp
+    const fetchKey = typeof key === "string" ? key : JSON.stringify(key);
 
-  useEffect(() => {
-    // Nếu key không hợp lệ (null, undefined, string rỗng), dừng fetch
-    if (!fetchKey || fetchKey === "null" || (typeof key === 'string' && key.trim() === '')) {
-      setData(null); setIsLoading(false); setError(null); return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true); setError(null);
-    
-    // Bọc fetcher để đảm bảo kiểu trả về là T (dùng key làm tham số)
-    fetcher(key)
-      .then((res: any) => { 
-        if (!cancelled) {
-            // Xử lý response nếu API trả về cấu trúc { items: T[] } hoặc { data: T }
-            const result = Array.isArray(res) ? res : res; 
-            setData(result as T);
+    useEffect(() => {
+        // Nếu key không hợp lệ (null, undefined, string rỗng), dừng fetch
+        if (!fetchKey || fetchKey === "null" || (typeof key === 'string' && key.trim() === '')) {
+            setData(null); setIsLoading(false); setError(null); return;
         }
-      })
-      .catch((e: any) => { 
-        if (!cancelled) {
-          console.error("SWR Fetch Error:", e);
-          setError(e); 
-        }
-      })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    
-    return () => { cancelled = true; };
-  }, [fetchKey, fetcher]);
-  
-  // mutate là hàm dùng để re-fetch, ở đây ta tạo một hàm rỗng đơn giản
-  // Trong ứng dụng thực tế, hàm này sẽ kích hoạt useEffect bằng cách thay đổi state nội bộ
-  const mutate = useCallback(() => {
-    // Giả lập re-fetch bằng cách thay đổi một state key
-    // Trong môi trường SWR thực, nó sẽ kích hoạt lại useEffect
-    // Ở đây, ta chỉ cần gọi lại fetchBindings thủ công trong component chính
-  }, []);
 
-  return { data, isLoading, error, mutate };
+        let cancelled = false;
+        setIsLoading(true); setError(null);
+
+        // Bọc fetcher để đảm bảo kiểu trả về là T (dùng key làm tham số)
+        fetcher(key)
+            .then((res: any) => {
+                if (!cancelled) {
+                    // Xử lý response nếu API trả về cấu trúc { items: T[] } hoặc { data: T }
+                    const result = Array.isArray(res) ? res : res;
+                    setData(result as T);
+                }
+            })
+            .catch((e: any) => {
+                if (!cancelled) {
+                    console.error("SWR Fetch Error:", e);
+                    setError(e);
+                }
+            })
+            .finally(() => { if (!cancelled) setIsLoading(false); });
+
+        return () => { cancelled = true; };
+    }, [fetchKey, fetcher]);
+
+    // mutate là hàm dùng để re-fetch, ở đây ta tạo một hàm rỗng đơn giản
+    // Trong ứng dụng thực tế, hàm này sẽ kích hoạt useEffect bằng cách thay đổi state nội bộ
+    const mutate = useCallback(() => {
+        // Giả lập re-fetch bằng cách thay đổi một state key
+        // Trong môi trường SWR thực, nó sẽ kích hoạt lại useEffect
+        // Ở đây, ta chỉ cần gọi lại fetchBindings thủ công trong component chính
+    }, []);
+
+    return { data, isLoading, error, mutate };
 }
 
 
@@ -140,7 +186,7 @@ const userApi = {
     // Giả định API GET /users trả về { items: UserLite[] }
     findAllUsers: async (): Promise<UserLite[]> => {
         // Sử dụng endpoint /users/by-organization như yêu cầu hoặc endpoint chung
-        const response = await fetcher< UserLite[]>(`${USER_BASE_URL}/by-organization?limit=1000`);
+        const response = await fetcher<UserLite[]>(`${USER_BASE_URL}/by-organization?limit=1000`);
         return response;
     }
 }
@@ -345,22 +391,53 @@ const UserShiftPolicyPage: React.FC = () => {
 
     // 1. Tải danh sách người dùng bằng useSWR
     // Key: USER_BASE_URL để đảm bảo refetch khi cần (mặc dù ở đây ta không dùng mutate)
-    const { 
-        data: users, 
-        isLoading: isLoadingUsers, 
-        error: usersError, 
-        mutate: mutateUsers 
-    } = useSWR<UserLite[]>(USER_BASE_URL, userApi.findAllUsers);
+    // const { 
+    //     data: users, 
+    //     isLoading: isLoadingUsers, 
+    //     error: usersError, 
+    //     mutate: mutateUsers 
+    // } = useSWR<UserLite[]>(USER_BASE_URL, userApi.findAllUsers);
 
     // 2. State cho User ID được chọn
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
     const [bindings, setBindings] = useState<UserPolicyBinding[]>([]);
-    const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]); 
-    const [isLoadingBindings, setIsLoadingBindings] = useState(false); 
-    const [error, setError] = useState<string | null>(null); 
+    const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+    const [isLoadingBindings, setIsLoadingBindings] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBinding, setEditingBinding] = useState<UserPolicyBinding | null>(null);
+
+
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"   
+    const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
+    const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
+    const [nameFilter, setNameFilter] = useState<string>('');
+
+    const [usersLoading, setUsersLoading] = useState(false);
+    
+    const { data: users, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>("/users/withOrganizationName", api);
+    const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations", api);
+
+    const allUsers = users ?? EMPTY_USERS;
+    const organizations = orgsData ?? EMPTY_ORGS;
+
+    const filteredUsers = useMemo(() => {
+        let userData = allUsers;
+
+        // 1. Lọc theo Organization
+        if (selectedOrganizationId) {
+            userData = userData.filter(user => user.organizationId === selectedOrganizationId);
+        }
+
+        // 2. Lọc theo Tên
+        if (nameFilter) {
+            const lowerCaseFilter = nameFilter.toLowerCase();
+            userData = userData.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+        }
+
+        return userData;
+    }, [users, selectedOrganizationId, nameFilter]);
 
     // Tải danh sách Shift Types (Policy Code)
     const fetchShiftTypes = useCallback(async () => {
@@ -385,10 +462,10 @@ const UserShiftPolicyPage: React.FC = () => {
         try {
             // API Call: GET /user-policy-bindings?userId=...&policyType=SHIFT_TYPE
             const data = await userPolicyApi.findAll(currentUserId);
-            console.log('data', data);           
+            console.log('data', data);
 
             // Sắp xếp theo effectiveFrom
-            const sortedItems =data.length
+            const sortedItems = data.length
                 ? data.sort((a, b) =>
                     (a.effectiveFrom || '0001-01-01').localeCompare(b.effectiveFrom || '0001-01-01')
                 )
@@ -429,9 +506,9 @@ const UserShiftPolicyPage: React.FC = () => {
             setError("Lỗi: Không có người dùng nào được chọn.");
             throw new Error("Không có người dùng nào được chọn.");
         }
-        
+
         // userId đã được thêm vào data trong PolicyForm (nhưng ta kiểm tra lần nữa)
-        const finalData = { ...data, userId: selectedUserId }; 
+        const finalData = { ...data, userId: selectedUserId };
 
         if (id) {
             await userPolicyApi.update(id, finalData);
@@ -439,7 +516,7 @@ const UserShiftPolicyPage: React.FC = () => {
             await userPolicyApi.create(finalData);
         }
         // Re-fetch bindings sau khi lưu thành công
-        await fetchBindings(selectedUserId); 
+        await fetchBindings(selectedUserId);
     };
 
     const handleDelete = async (id: string) => {
@@ -452,7 +529,7 @@ const UserShiftPolicyPage: React.FC = () => {
             try {
                 await userPolicyApi.delete(id);
                 // Re-fetch bindings sau khi xóa thành công
-                await fetchBindings(selectedUserId); 
+                await fetchBindings(selectedUserId);
             } catch (err: any) {
                 console.error('Xóa thất bại:', err);
                 setError(`Xóa thất bại: ${err.message}`);
@@ -485,20 +562,20 @@ const UserShiftPolicyPage: React.FC = () => {
     const selectedUser = users?.find(u => u._id === selectedUserId);
 
     // Xử lý khi có lỗi tải User
-    if (usersError) {
-        return (
-            <div className="min-h-screen p-8 bg-gray-50 flex items-center justify-center">
-                <div className="text-center p-6 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg shadow-md">
-                    <p className="font-bold text-lg">Lỗi tải danh sách người dùng:</p>
-                    <p className="mt-2 text-sm">{usersError.message || 'Không thể kết nối đến máy chủ User API.'}</p>
-                </div>
-            </div>
-        );
-    }
-    
+    // if (usersError) {
+    //     return (
+    //         <div className="min-h-screen p-8 bg-gray-50 flex items-center justify-center">
+    //             <div className="text-center p-6 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg shadow-md">
+    //                 <p className="font-bold text-lg">Lỗi tải danh sách người dùng:</p>
+    //                 <p className="mt-2 text-sm">{usersError.message || 'Không thể kết nối đến máy chủ User API.'}</p>
+    //             </div>
+    //         </div>
+    //     );
+    // }
+
     // UI Loading tổng thể
     if (isLoadingUsers && !users) {
-         return (
+        return (
             <div className="min-h-screen p-8 bg-gray-50 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
                 <p className="ml-4 text-indigo-600 font-medium">Đang tải dữ liệu khởi tạo...</p>
@@ -516,7 +593,7 @@ const UserShiftPolicyPage: React.FC = () => {
                 <button
                     onClick={handleCreate}
                     // Chỉ cho phép tạo khi đã chọn User và có Shift Type
-                    disabled={!selectedUserId || shiftTypes.length === 0} 
+                    disabled={!selectedUserId || shiftTypes.length === 0}
                     className="flex items-center px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 transition duration-150 disabled:bg-indigo-400"
                 >
                     <Plus className="w-5 h-5 mr-2" /> Gán Ca Mới
@@ -525,6 +602,34 @@ const UserShiftPolicyPage: React.FC = () => {
 
             {/* User Selector (Mới) */}
             <div className="mb-6 p-4 bg-white rounded-xl shadow-lg border border-indigo-200">
+                <div className="flex flex-col">
+                    <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+                    <select
+                        value={selectedOrganizationId}
+                        onChange={(e) => setSelectedOrganizationId(e.target.value)}
+                        className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        disabled={isLoadingOrganizations}
+                    >
+                        <option value="">Tất cả Tổ chức</option>
+                        {organizations.map((org) => (
+                            <option key={org._id} value={org._id}>
+                                {org.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Tên nhân viên */}
+                <div className="flex flex-col">
+                    <label className="text-sm font-medium text-gray-700 mb-1">Tìm Tên Nhân Viên</label>
+                    <input
+                        type="text"
+                        placeholder="Nhập tên nhân viên..."
+                        value={nameFilter}
+                        onChange={(e) => setNameFilter(e.target.value)}
+                        className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                </div>
                 <label className="block text-lg font-semibold text-gray-800 mb-2 flex items-center">
                     <User className="w-5 h-5 mr-2 text-indigo-500" />
                     Chọn Người Dùng Để Quản Lý
@@ -537,11 +642,11 @@ const UserShiftPolicyPage: React.FC = () => {
                         disabled={isLoadingUsers || !users || users.length === 0}
                     >
                         {isLoadingUsers && <option value="">Đang tải danh sách người dùng...</option>}
-                        {(!users || users.length === 0) && <option value="">Không tìm thấy người dùng</option>}
-                        {!selectedUserId && users && users.length > 0 && <option value="">-- Chọn Người Dùng --</option>}
-                        {users?.map(user => (
-                            <option key={user._id} value={user._id}>
-                                {user.fullName} ({user._id})
+                        {(!filteredUsers || filteredUsers.length === 0) && <option value="">Không tìm thấy người dùng</option>}
+                        {!selectedUserId && filteredUsers && filteredUsers.length > 0 && <option value="">-- Chọn Người Dùng --</option>}
+                        {filteredUsers?.map(filteredUsers => (
+                            <option key={filteredUsers._id} value={filteredUsers._id}>
+                                {filteredUsers.fullName} ({filteredUsers._id})
                             </option>
                         ))}
                     </select>

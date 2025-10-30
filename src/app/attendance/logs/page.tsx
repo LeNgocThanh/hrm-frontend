@@ -2,6 +2,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getDayNameFromDate } from "@/utils/date-helpers";
+import { getUsersUnderOrganizations, getUserWithOrganizationUnder } from "@/lib/api/users";
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
+import { getOrganizations } from "@/lib/api/organizations";
+import useSWR from "swr";
+
 
 // ==== CONFIG ====
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -26,6 +32,12 @@ interface GroupRow {
 }
 
 type UserLite = { _id: ObjectId; fullName: string; email?: string };
+
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+};
 
 // ===== API helper (lenient JSON) =====
 async function api(path: string, opts: any = {}) {
@@ -61,12 +73,12 @@ async function api(path: string, opts: any = {}) {
   return { data: txt };
 }
 
-// Wrapper fetchers
-const fetcher = (p: string, q?: Record<string, any>) => api(p, { query: q });
-async function fetchList<T = any>(p: string, q?: Record<string, any>): Promise<T[]> {
-  const data = await fetcher(p, q);
-  return Array.isArray(data) ? data : (data?.items ?? []);
-}
+// // Wrapper fetchers
+// const fetcher = (p: string, q?: Record<string, any>) => api(p, { query: q });
+// async function fetchList<T = any>(p: string, q?: Record<string, any>): Promise<T[]> {
+//   const data = await fetcher(p, q);
+//   return Array.isArray(data) ? data : (data?.items ?? []);
+// }
 
 function resolveUser(u: any, map: Map<string, UserLite>) {
   if (typeof u === 'string') return map.get(u)?.fullName || u;
@@ -87,7 +99,7 @@ export default function AttendanceLogsPage() {
     // Tạo file mẫu Excel: cột userId, date, timeIn, timeOut
     const XLSX = await import('xlsx');
     const rows = [
-      { userId: 'U001', date: '2025-10-01', time1: '08:00', time2: '09:00',time3: '10:00',time4: '12:00',time5: '13:30',time6: '17:00' },
+      { userId: 'U001', date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00' },
       { userId: 'U002', date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '' },
     ];
     const ws = XLSX.utils.json_to_sheet(rows, { header: ['userId', 'date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6'] });
@@ -153,23 +165,56 @@ export default function AttendanceLogsPage() {
   // Filters
   const [userId, setUserId] = useState("");
   const [from, setFrom] = useState<string>(""); // yyyy-mm-dd
-  const [to, setTo] = useState<string>("");
-  const [users, setUsers] = useState<UserLite[]>([]);
+  const [to, setTo] = useState<string>("");  
   const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setUsersLoading(true);
-    api('/users/by-organization')
-      .then((res: any) => {
-        if (cancelled) return;
-        const arr = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
-        setUsers(arr as UserLite[]);
-      })
-      .catch((e: any) => { if (!cancelled) setUsersError(e?.message || ''); })
-      .finally(() => { if (!cancelled) setUsersLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
+
+  const [nameFilter, setNameFilter] = useState<string>('');
+  const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
+  const initialUserPickedRef = React.useRef(false);
+  const {
+    data: usersData,
+    error: usersError,
+    isLoading: isLoadingUsers,
+  } = useSWR<UserWithOrganization[]>(
+    `${API_BASE}/users/withOrganizationName`,
+    fetcher<UserWithOrganization[]>,
+    { revalidateOnFocus: false } // tuỳ chọn
+  );
+
+  const {
+    data: orgsData,
+    error: orgsError,
+    isLoading: isLoadingOrganizations,
+  } = useSWR<OrganizationType[]>(
+    `${API_BASE}/organizations`,
+    fetcher<OrganizationType[]>,
+    { revalidateOnFocus: false } // tuỳ chọn
+  );
+
+
+  // ánh xạ dữ liệu SWR sang biến dùng trong UI
+  const users = usersData ?? EMPTY_USERS;
+  const organizations = orgsData ?? EMPTY_ORGS;
+
+  const filteredUsers = useMemo(() => {
+    let userData = users;
+
+    // 1. Lọc theo Organization
+    if (selectedOrganizationId) {
+      userData = userData.filter(user => user.organizationId === selectedOrganizationId);
+    }
+
+    // 2. Lọc theo Tên
+    if (nameFilter) {
+      const lowerCaseFilter = nameFilter.toLowerCase();
+      userData = userData.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+    }
+
+    return userData;
+  }, [users, selectedOrganizationId, nameFilter]);
   // If not using global SWR in your project, replace the above with your own hook/import
 
   const userMap = useMemo(() => new Map((users || []).map((u: any) => [String(u._id), u])), [users]);
@@ -370,32 +415,86 @@ export default function AttendanceLogsPage() {
       {usersError && (
         <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">Lỗi tải danh sách nhân viên: {usersError}</div>
       )}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">Nhân viên</label>
-          {/* Replace this with your SWR hook if available */}
-          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2">
-            <option value="">Tất cả nhân viên</option>
-            {(users || []).map((u: any) => (
-              <option key={String(u._id)} value={String(u._id)}>
-                {u.fullName}{u.email ? ` — ${u.email}` : ""}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-3 bg-white p-4 rounded-xl shadow-sm">
+        {/* Tổ chức */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+          <select
+            value={selectedOrganizationId}
+            onChange={(e) => setSelectedOrganizationId(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={isLoadingOrganizations}
+          >
+            <option value="">Tất cả Tổ chức</option>
+            {organizations.map((org) => (
+              <option key={org._id} value={org._id}>
+                {org.name}
               </option>
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">Từ ngày</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2" />
+
+        {/* Tên nhân viên */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Tìm Tên Nhân Viên</label>
+          <input
+            type="text"
+            placeholder="Nhập tên nhân viên..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">Đến ngày</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 rounded-xl border focus:outline-none focus:ring-2" />
+
+        {/* Chọn nhân viên */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Nhân viên</label>
+          <select
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">Tất cả nhân viên</option>
+            {(filteredUsers || []).map((u: any) => (
+              <option key={String(u._id)} value={String(u._id)}>
+                {u.fullName}
+                {u.email ? ` — ${u.email}` : ""}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600"> </label>
-          <button onClick={fetchLogs} className="px-3 py-2 rounded-xl bg-blue-600 text-white hover:opacity-90">Lọc & Tải</button>
+
+        {/* Từ ngày */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Từ ngày</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Đến ngày + nút lọc */}
+        <div className="flex flex-col justify-end">
+          <label className="text-sm font-medium text-gray-700 mb-1">Đến ngày</label>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <button
+              onClick={fetchLogs}
+              className="whitespace-nowrap px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              Lọc & Tải
+            </button>
+          </div>
         </div>
       </section>
+
 
       {/* Grouped Table */}
       <section className="border rounded-2xl overflow-hidden">

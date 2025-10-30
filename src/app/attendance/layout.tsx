@@ -1,4 +1,10 @@
 import React from 'react';
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+title: "Chấm công",
+description: "Resource Management System",
+};
 
 export default function AdminLayout({
   children,

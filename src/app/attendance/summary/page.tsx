@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { getUsersUnderOrganizations, getUserWithOrganizationUnder } from "@/lib/api/users";
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
+import { getOrganizations } from "@/lib/api/organizations";
 // Đã loại bỏ các import không cần thiết cho Summary Page
 // Ví dụ: AT_STATUS, STATUS_OPTIONS_AT, DailyRow, DailySessionActual, ...
 
@@ -106,9 +110,17 @@ export default function MonthlyAttendanceSummaryPage() {
   const todayKey = useMemo(() => toDateKeyLocal(new Date(), tz), []);
   const currentMonthKey = todayKey.slice(0, 7); // YYYY-MM
   const [filterMonth, setFilterMonth] = useState<string>(currentMonthKey);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
+  const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
+  const [nameFilter, setNameFilter] = useState<string>('');
 
   // Users
-  const { data: users, isLoading: isLoadingUsers } = useSWR<UserLite[]>("/users/by-organization", api);
+  const { data: users, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>("/users/withOrganizationName", api);
+  const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations", api);
+
+const allUsers = users ?? EMPTY_USERS;
+const organizations = orgsData ?? EMPTY_ORGS;
 
   // Monthly Summary
   const swrKey = useMemo(() => {
@@ -119,15 +131,33 @@ export default function MonthlyAttendanceSummaryPage() {
   }, [userId, filterMonth]);
 
 
+
   const { data: summaryData, isLoading: isLoadingSummary, error } = useSWR<AttendanceSummaryInterface>(swrKey, summaryFetcher);
+
+  const filteredUsers = useMemo(() => {
+      let users = allUsers;
   
+      // 1. Lọc theo Organization
+      if (selectedOrganizationId) {
+        users = users.filter(user => user.organizationId === selectedOrganizationId);
+      }
+  
+      // 2. Lọc theo Tên
+      if (nameFilter) {
+        const lowerCaseFilter = nameFilter.toLowerCase();
+        users = users.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+      }
+  
+      return users;
+    }, [allUsers, selectedOrganizationId, nameFilter]);
+
   // Tính toán Tỉ lệ công (Work Ratio)
   const workRatio = useMemo(() => {
     const worked = summaryData?.minutes.worked ?? 0;
     const hourWork = summaryData?.minutes.hourWork ?? 0;
-    
+
     if (hourWork === 0) return 'N/A';
-    
+
     const ratio = (worked / hourWork) * 100;
     return ratio.toFixed(2);
   }, [summaryData]);
@@ -152,32 +182,84 @@ export default function MonthlyAttendanceSummaryPage() {
         </h1>
 
         {/* User and Month picker */}
-        <div className="mb-6 flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl shadow-md">
-          <label className="text-gray-700 font-medium">Chọn Nhân viên:</label>
-          {isLoadingUsers ? (
-            <div className="text-gray-500 p-2">Đang tải danh sách…</div>
-          ) : (
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">-- Chọn nhân viên --</option>
-              {(users || []).map((u) => (
-                <option key={String(u._id)} value={String(u._id)}>
-                  {u.fullName}{u.email ? ` — ${u.email}` : ""}
-                </option>
-              ))}
-            </select>
-          )}
-          <label className="text-gray-700 font-medium ml-4">Chọn Tháng:</label>
-            <input
-              type="month"
-              value={filterMonth}
-              onChange={handleMonthChange}
-              className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              max={currentMonthKey} // Ngăn chọn tháng trong tương lai
-            />
+        <div className="mb-8 flex flex-wrap items-end gap-6 bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+
+            {/* Bộ lọc Tổ Chức */}
+            <div className="flex flex-col">
+                <label htmlFor="organization-select" className="text-sm font-semibold text-gray-700 mb-1">
+                    Chọn Tổ Chức
+                </label>
+                <select
+                    id="organization-select"
+                    value={selectedOrganizationId}
+                    onChange={(e) => setSelectedOrganizationId(e.target.value)}
+                    className="w-64 p-3 border border-gray-300 rounded-xl shadow-sm bg-white hover:border-indigo-500 transition duration-150 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={isLoadingOrganizations}
+                >
+                    <option value="">Tất cả Tổ chức</option>
+                    {organizations.map((org) => (
+                        <option key={org._id} value={org._id}>
+                            {org.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Lọc theo Tên Nhân Viên */}
+            <div className="flex flex-col">
+                <label htmlFor="name-filter-input" className="text-sm font-semibold text-gray-700 mb-1">
+                    Tìm Tên Nhân Viên
+                </label>
+                <input
+                    id="name-filter-input"
+                    type="text"
+                    placeholder="Nhập tên nhân viên..."
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    className="w-64 p-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+            </div>
+            
+            {/* Chọn Nhân Viên (Dropdown) - Đặt dưới tên để dễ quản lý luồng */}
+            <div className="flex flex-col">
+                <label htmlFor="user-select" className="text-sm font-semibold text-gray-700 mb-1">
+                    Chọn Nhân Viên
+                </label>
+                {isLoadingUsers ? (
+                    <div className="w-64 p-3 text-gray-500 bg-gray-100 rounded-xl border border-gray-300 flex items-center justify-center">
+                        Đang tải danh sách…
+                    </div>
+                ) : (
+                    <select
+                        id="user-select"
+                        value={userId}
+                        onChange={(e) => setUserId(e.target.value)}
+                        className="w-64 p-3 border border-gray-300 rounded-xl shadow-sm bg-white hover:border-blue-500 transition duration-150 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="">-- Chọn nhân viên --</option>
+                        {(filteredUsers || []).map((u) => (
+                            <option key={String(u._id)} value={String(u._id)}>
+                                {u.fullName}{u.email ? ` — ${u.email}` : ""}
+                            </option>
+                        ))}
+                    </select>
+                )}
+            </div>
+
+            {/* Chọn Tháng */}
+            <div className="flex flex-col">
+                <label htmlFor="month-picker" className="text-sm font-semibold text-gray-700 mb-1">
+                    Chọn Tháng
+                </label>
+                <input
+                    id="month-picker"
+                    type="month"
+                    value={filterMonth}
+                    onChange={handleMonthChange}
+                    className="p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    max={currentMonthKey} // Ngăn chọn tháng trong tương lai
+                />
+            </div>
         </div>
 
         {/* Content */}
@@ -214,8 +296,8 @@ export default function MonthlyAttendanceSummaryPage() {
 }
 
 // --- Component hiển thị Summary ---
-function SummaryDisplay({ data, workRatio, user }: { 
-  data: AttendanceSummaryInterface, 
+function SummaryDisplay({ data, workRatio, user }: {
+  data: AttendanceSummaryInterface,
   workRatio: string | number,
   user?: UserLite
 }) {
@@ -225,17 +307,17 @@ function SummaryDisplay({ data, workRatio, user }: {
   const [y, m] = monthKey.split('-').map(Number);
   const lastDate = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const totalDaysInMonth = lastDate;
-  
+
   return (
     <div className="bg-white rounded-xl shadow border p-6 space-y-6">
       <h2 className="text-2xl font-semibold text-gray-800">
-        Tổng hợp tháng <span className="text-blue-600">{monthKey}</span> 
+        Tổng hợp tháng <span className="text-blue-600">{monthKey}</span>
         {user && <span className="text-lg font-normal text-gray-600 ml-3">({user.fullName})</span>}
       </h2>
       <p className="text-sm text-gray-500">
         Tính toán vào: {new Date(data.computedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' })}
       </p>
-      
+
       {/* Thống kê Tổng quan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard title="Tổng ngày đã duyệt" value={days.days} unit={`/${totalDaysInMonth} ngày`} color="text-indigo-600" />
@@ -266,7 +348,7 @@ function SummaryDisplay({ data, workRatio, user }: {
         <DetailCard label="Tổng giờ check-in" value={minsToHHmm(minutes.workedCheckIn)} unit="" />
         <DetailCard label="Tổng phút đi muộn" value={minsToHHmm(minutes.late)} unit="" color="text-red-600" />
         <DetailCard label="Tổng phút về sớm" value={minsToHHmm(minutes.earlyLeave)} unit="" color="text-red-600" />
-      </div>    
+      </div>
     </div>
   );
 }

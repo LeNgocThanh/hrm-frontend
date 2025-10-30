@@ -3,9 +3,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AT_STATUS, STATUS_OPTIONS_AT } from '@/i18n/attendance.vi'
 import { getDayNameFromDate } from '@/utils/date-helpers'
+import { getUsersUnderOrganizations, getUserWithOrganizationUnder } from "@/lib/api/users";
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
+import { getOrganizations } from "@/lib/api/organizations";
+import useSWR from "swr";
+
 
 // Env
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+};
 
 // --- Types Khớp Backend Mới ---
 enum SessionCode {
@@ -113,6 +125,7 @@ interface UserLite {
 
 // Loại bỏ hằng số ALL_USERS giả lập
 // const ALL_USERS: UserLite[] = [...];
+
 
 const DEFAULT_TIMEZONE = 'Asia/Bangkok';
 
@@ -265,22 +278,20 @@ const groupAndSummarizeTimeEntries = (entries: UserTimeEntry[], tz: string): Map
   return map;
 }
 
-
+interface HasId {
+  _id: string;
+}
 // --- Main Component ---
 export default function DailyAttendancePage() {
 
   // State mới để lưu danh sách người dùng từ API
-  const [allUsers, setAllUsers] = useState<UserLite[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   const now = new Date();
   const currentDayKey = toDateKeyLocal(now, DEFAULT_TIMEZONE);
   const firstDayKey = firstDayOfMonth(currentDayKey);
-
   // Lấy ID người dùng đầu tiên (hoặc mặc định rỗng nếu chưa có)
-  const initialUserId = allUsers.length > 0 ? allUsers[0]._id : '';
-  const [selectedUserId, setSelectedUserId] = useState<string>(initialUserId);
-
+  
+ const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [dailyRows, setDailyRows] = useState<DailyRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -290,30 +301,58 @@ export default function DailyAttendancePage() {
 
   const [shiftTypes, setShiftTypes] = useState<Record<string, ShiftType>>({});
 
+  
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
+  
+
+  const [nameFilter, setNameFilter] = useState<string>('');
+
+  const [title, setTitle] = useState("Đang tải...");
+  const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
+  const initialUserPickedRef = React.useRef(false);
+
+
   // useEffect để tải danh sách người dùng
+  // USERS via SWR
+const {
+  data: usersData,
+  error: usersError,
+  isLoading: isLoadingUsers,
+} = useSWR<UserWithOrganization[]>(
+  `${API_BASE}/users/withOrganizationName`,
+  fetcher<UserWithOrganization[]>,
+  { revalidateOnFocus: false } // tuỳ chọn
+);
+
+const {
+  data: orgsData,
+  error: orgsError,
+  isLoading: isLoadingOrganizations,
+} = useSWR<OrganizationType[]>(
+  `${API_BASE}/organizations`,
+  fetcher<OrganizationType[]>,
+  { revalidateOnFocus: false } // tuỳ chọn
+);
+
+
+// ánh xạ dữ liệu SWR sang biến dùng trong UI
+const allUsers = usersData ?? EMPTY_USERS;
+const organizations = orgsData ?? EMPTY_ORGS;
+
+
+// Khi SWR usersData về, nếu chưa có selectedUserId thì chọn user đầu tiên
+useEffect(() => {
+  if (!initialUserPickedRef.current && allUsers.length > 0) {
+    setSelectedUserId(allUsers[0]._id);
+    initialUserPickedRef.current = true; // đánh dấu đã chọn
+  }
+}, [allUsers]);
+
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/users/by-organization`, { credentials: 'include' });
-        if (!response.ok) {
-          throw new Error("Lỗi khi lấy danh sách người dùng.");
-        }
-        const users: UserLite[] = await response.json();
-        setAllUsers(users);
-
-        // Chọn người dùng đầu tiên nếu danh sách không rỗng
-        if (users.length > 0) {
-          setSelectedUserId(users[0]._id);
-        }
-      } catch (error) {
-        console.error("Lỗi fetch user: ", error);
-        // Có thể set lỗi ở đây
-      } finally {
-        setIsLoadingUsers(false);
-      }
-    };
-
-    fetchUsers();
+    // Ví dụ: đổi title sau khi fetch dữ liệu
+    setTitle("Chấm công ngày - Phần mềm quản lý");
   }, []);
 
   // Cập nhật selectedUserId nếu allUsers thay đổi và chưa được chọn
@@ -322,6 +361,37 @@ export default function DailyAttendancePage() {
       setSelectedUserId(allUsers[0]._id);
     }
   }, [allUsers, selectedUserId]);
+
+  const filteredUsers = useMemo(() => {
+    let users = allUsers;
+
+    // 1. Lọc theo Organization
+    if (selectedOrganizationId) {
+      users = users.filter(user => user.organizationId === selectedOrganizationId);
+    }
+
+    // 2. Lọc theo Tên
+    if (nameFilter) {
+      const lowerCaseFilter = nameFilter.toLowerCase();
+      users = users.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+    }
+
+    return users;
+  }, [allUsers, selectedOrganizationId, nameFilter]);
+
+  // Cập nhật selectedUserId nếu filteredUsers thay đổi
+  useEffect(() => {
+    if (filteredUsers.length > 0 && (!selectedUserId || !filteredUsers.find(u => u._id === selectedUserId))) {
+      setSelectedUserId(filteredUsers[0]._id);
+    } else if (filteredUsers.length === 0) {
+      setSelectedUserId('');
+      setDailyRows([]); // Xóa dữ liệu cũ nếu không có user nào
+    }
+  }, [filteredUsers, selectedUserId]);
+
+  function isObjectWithId(obj: any): obj is HasId {
+  return typeof obj === 'object' && obj !== null && '_id' in obj;
+}
 
   const fetchShiftType = async (code: string) => {
     if (!code || shiftTypes[code]) return;
@@ -359,7 +429,7 @@ export default function DailyAttendancePage() {
 
 
   const currentUserTz = useMemo(() => {
-    return allUsers.find(u => u._id === selectedUserId)?.timezone || DEFAULT_TIMEZONE;
+    return DEFAULT_TIMEZONE;
   }, [selectedUserId, allUsers]);
 
   const fetchAttendanceDaily = async (userId: string, from: string, to: string) => {
@@ -442,21 +512,22 @@ export default function DailyAttendancePage() {
   };
 
   const selectedUser = allUsers.find(u => u._id === selectedUserId);
+  const isLoadingAll = isLoadingUsers || isLoadingOrganizations;
 
   // Hiển thị trạng thái đang tải danh sách người dùng
-  if (isLoadingUsers) {
+  if (isLoadingAll) {
     return (
       <div className="text-center py-20 bg-gray-50 min-h-screen">
         <h1 className="text-3xl font-bold text-indigo-800 mb-6">Bảng Chấm Công Hàng Ngày</h1>
         <div className="text-center py-12 text-lg text-indigo-600">
           <div className="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mr-2"></div>
-          Đang tải danh sách nhân viên...
+          Đang tải dữ liệu ban đầu...
         </div>
       </div>
     );
   }
 
-  // Xử lý trường hợp không có người dùng nào
+  // Xử lý trường hợp không có người dùng nào (tổng thể)
   if (allUsers.length === 0) {
     return (
       <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
@@ -474,6 +545,35 @@ export default function DailyAttendancePage() {
       <h1 className="text-3xl font-bold text-indigo-800 mb-6">Bảng Chấm Công Hàng Ngày</h1>
 
       <div className="bg-white p-4 rounded-xl shadow-lg mb-6 flex flex-wrap gap-4 items-end">
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+          <select
+            value={selectedOrganizationId}
+            onChange={(e) => setSelectedOrganizationId(e.target.value)}
+            className="mt-1 block w-64 p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={isLoadingOrganizations}
+          >
+            <option value="">Tất cả Tổ chức</option>
+            {organizations.map((org) => (
+              <option key={org._id} value={org._id}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Lọc theo Tên Nhân Viên */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tìm Tên Nhân Viên</label>
+          <input
+            type="text"
+            placeholder="Nhập tên nhân viên..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="mt-1 block w-64 p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
         {/* Lựa chọn người dùng */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Nhân Viên</label>
@@ -481,13 +581,17 @@ export default function DailyAttendancePage() {
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             className="mt-1 block w-64 p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-            disabled={isLoadingUsers}
+            disabled={filteredUsers.length === 0}
           >
-            {allUsers.map((user) => (
-              <option key={user._id} value={user._id}>
-                {user.fullName || user.name} {/* Hiển thị fullName, fallback là name */}
-              </option>
-            ))}
+            {filteredUsers.length > 0 ? (
+                filteredUsers.map((user) => (
+                    <option key={user._id} value={user._id}>
+                        {user.fullName} ({user.organizationName})
+                    </option>
+                ))
+            ) : (
+                <option value="" disabled>Không có nhân viên phù hợp</option>
+            )}
           </select>
         </div>
 

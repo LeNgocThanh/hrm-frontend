@@ -44,3 +44,14 @@ export async function deleteOrganization(id: string): Promise<void> {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
 } 
+
+export async function getOrganizationsTree(): Promise<Organization[]> {
+  const res = await fetch(`${API_URL}/organizations`, {
+    cache: 'no-store',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  return res.json();
+}

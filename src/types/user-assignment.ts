@@ -1,7 +1,7 @@
 export interface UserAssignment {
   _id: string;
   userId: string | { _id: string };
-  organizationId: string | { _id: string };
+  organizationId: string | { _id: string } 
   positionId: string | { _id: string };
   roleIds: string[];
   isActive: boolean;
