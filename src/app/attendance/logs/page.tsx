@@ -87,7 +87,7 @@ function resolveUser(u: any, map: Map<string, UserLite>) {
 }
 
 // Column mapping keys we expect
-const REQUIRED_FIELDS = ["userId", "date"] as const;
+const REQUIRED_FIELDS = ["date"] as const;
 const OPTIONAL_FIELDS = ["time1", "time2", "time3", "time4", "time5", "time6"] as const; // có thể chọn 1 hoặc 2
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
 
@@ -99,10 +99,10 @@ export default function AttendanceLogsPage() {
     // Tạo file mẫu Excel: cột userId, date, timeIn, timeOut
     const XLSX = await import('xlsx');
     const rows = [
-      { userId: 'U001', date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00' },
-      { userId: 'U002', date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '' },
+      { date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00' },
+      { date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '' },
     ];
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ['userId', 'date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6'] });
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6'] });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');
     XLSX.writeFile(wb, 'logs_import_template.xlsx');
@@ -165,7 +165,7 @@ export default function AttendanceLogsPage() {
   // Filters
   const [userId, setUserId] = useState("");
   const [from, setFrom] = useState<string>(""); // yyyy-mm-dd
-  const [to, setTo] = useState<string>("");  
+  const [to, setTo] = useState<string>("");
   const [usersLoading, setUsersLoading] = useState(false);
 
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
@@ -258,7 +258,6 @@ export default function AttendanceLogsPage() {
   const [rawHeaders, setRawHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
   const [headerMap, setHeaderMap] = useState<Record<FieldKey, string | "">>({
-    userId: "",
     date: "",
     time1: "",
     time2: "",
@@ -270,6 +269,7 @@ export default function AttendanceLogsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<LogRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   // Fetch logs (FIXED to use api helper + normalize)
   async function fetchLogs() {
@@ -305,9 +305,13 @@ export default function AttendanceLogsPage() {
     try {
       const out: LogRow[] = [];
       for (const row of rawRows) {
-        const uid = headerMap.userId ? String(row[headerMap.userId]).trim() : "";
+        if (!userId) { setImportError('Vui lòng chọn Nhân viên ở bộ lọc trước khi import.'); setPreviewRows([]); return; }
+
         const dateCell = headerMap.date ? row[headerMap.date] : "";
-        if (!uid || !dateCell) continue;
+        if (!dateCell) continue;
+
+        // uid là người đang chọn trên màn hình
+        const uid = String(userId).trim();
 
         // Lặp qua 6 cột thời gian
         for (let i = 1; i <= 6; i++) {
@@ -344,6 +348,8 @@ export default function AttendanceLogsPage() {
         const res = await fetch(`${API_BASE}/attendance/logs/import`, { method: 'POST', body: form });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } else {
+        if (!userId) throw new Error('Vui lòng chọn Nhân viên ở bộ lọc trước khi tải lên.');
+
         const bad = previewRows.filter((r) => !r.userId || !r.timestamp);
         if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);
         const payload = previewRows.map(({ userId, timestamp }) => ({ userId, timestamp }));
@@ -361,7 +367,7 @@ export default function AttendanceLogsPage() {
   function resetImport() {
     setRawHeaders([]); setRawRows([]);
     setHeaderMap({
-      userId: '', date: '',
+      date: '',
       time1: '', time2: '', time3: '',
       time4: '', time5: '', time6: '',
     });
@@ -379,11 +385,10 @@ export default function AttendanceLogsPage() {
       const lower = headers.map((h) => ({ h, k: h.toLowerCase() }));
       const find = (keys: string[]) => lower.find(({ k }) => keys.some((kk) => k.includes(kk)))?.h || '';
       setHeaderMap({
-        userId: find(['userid', 'user_id', 'ma nv', 'manv', 'employee', 'uid', 'mã nhân viên', 'nhân viên', 'id']),
         date: find(['date', 'ngay', 'ngày', 'yyyy', 'tháng', 'day']),
         // Logic tìm 6 cột time: tìm cột có chứa 'time', 'giờ', 'in', 'out', hoặc '1', '2', ...
         time1: find(['time 1', 'time1', 'giờ 1', '1', 'in']), // Ví dụ: Cột đầu tiên có thể là 'in'
-        time2: find(['time 2', 'time2', 'giờ 2', '2', 'out']),// Ví dụ: Cột thứ hai có thể là 'out'
+        time2: find(['time 2', 'time2', 'giờ 2', '2', 'out']),// Ví dụ: Cột thứ hai có thể là 'ou
         time3: find(['time 3', 'time3', 'giờ 3', '3']),
         time4: find(['time 4', 'time4', 'giờ 4', '4']),
         time5: find(['time 5', 'time5', 'giờ 5', '5']),
@@ -401,7 +406,7 @@ export default function AttendanceLogsPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Chấm công · Dữ liệu thô</h1>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <button onClick={() => setShowImport(true)} className="px-3 py-2 rounded-xl border hover:bg-gray-50">Import Logs</button>
+          <button onClick={() => setShowImport(true)} disabled={!userId} className="px-3 py-2 rounded-xl border hover:bg-gray-50">Import Logs</button>
           <button onClick={fetchLogs} className="px-3 py-2 rounded-xl bg-black text-white hover:opacity-90">Tải dữ liệu</button>
           <div className="w-px h-6 bg-gray-300 mx-2" />
           <button onClick={downloadTemplate} className="px-3 py-2 rounded-xl border hover:bg-gray-50" title="Tải file mẫu nhập logs">File mẫu</button>
@@ -544,7 +549,7 @@ export default function AttendanceLogsPage() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 space-y-4">
             <div className="flex items-start justify-between">
-              <h2 className="text-lg font-semibold">Import Logs</h2>
+              <h2 className="text-lg font-semibold">Import Logs {resolveUser(userId, userMap)}</h2>
               <button onClick={() => { setShowImport(false); resetImport(); }} className="p-2 rounded-lg hover:bg-gray-100">✕</button>
             </div>
 
@@ -570,8 +575,7 @@ export default function AttendanceLogsPage() {
                 <div className="border rounded-xl overflow-hidden">
                   <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 10)</div>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      // ...
+                    <table className="min-w-full text-sm">                     
                       <thead className="bg-gray-50">
                         <tr className="text-left">
                           <th className="px-3 py-2">#</th>
