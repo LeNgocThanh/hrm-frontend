@@ -58,6 +58,19 @@ const navigationItems = [
       { name: "Xem lịch họp", href: "/roomMeetings/rooms", icon: "🔎📅" },
     ],
   },
+{
+    name: "Chấm công",
+    icon: "📅",
+    children: [
+      { name: "Lịch sử chấm công", href: "/attendance/logs", icon: "📊📅" },
+      { name: "CÔng theo ngày", href: "/attendance/dailly", icon: "🛠️📅" },
+      { name: "Công tháng", href: "/attendance/summary", icon: "🛠️📅" },
+      { name: "Tạo ca", href: "/attendance/shiftType", icon: "🔎📅" },
+      { name: "Gán ca", href: "/attendance/user-policy", icon: "🔎📅" },
+      { name: "Chạy jobs", href: "/attendance/jobs", icon: "🔎📅" },
+    ],
+  },
+
   {
     name: "Xem và tìm kiếm",
     icon: "🔍",

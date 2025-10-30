@@ -292,7 +292,7 @@ const AttendanceJobsRunner: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/attendance/${endpoint}`, {
+      const res = await fetch(`${API_BASE}/attendance-job/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
