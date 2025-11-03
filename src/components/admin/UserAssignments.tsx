@@ -58,7 +58,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [form, setForm] = useState<Partial<UserAssignment>>({ organizationId: '', positionId: '', roleIds: [], isActive: true, isPrimary: false, timeIn: '', timeOut: '', workType: 'fullTime' });
+  const [form, setForm] = useState<Partial<UserAssignment>>({ organizationId: '', positionId: '', roleIds: [],userCode: '' ,isActive: true, isPrimary: false, timeIn: '', timeOut: '', workType: 'fullTime' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,8 +66,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
   }, [userId]);
 
   const fetchAll = async () => {
-    const assignmentsData = await getUserAssignmentsByUser(userId);
-    console.log('Assignments data:', assignmentsData);
+    const assignmentsData = await getUserAssignmentsByUser(userId);   
     setAssignments(assignmentsData);
     setOrganizations(await getOrganizations());
     setPositions(await getPositions());
@@ -89,7 +88,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
     } else {
       await createUserAssignment(payload);
     }
-    setForm({ organizationId: '', positionId: '', roleIds: [], isActive: true, isPrimary: false, timeIn: '', timeOut: '', workType: 'fullTime' });
+    setForm({ organizationId: '', positionId: '', roleIds: [], userCode: '', isActive: true, isPrimary: true, timeIn: '', timeOut: '', workType: 'fullTime' });
     setEditingId(null);
     setAssignments(await getUserAssignmentsByUser(userId));
   };
@@ -108,6 +107,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
         ? (a.positionId as { _id: string })._id
         : a.positionId,
       roleIds: roleIds,
+      userCode: a.userCode,
       isActive: a.isActive,
       isPrimary: a.isPrimary,
       timeIn: a.timeIn || '',
@@ -163,7 +163,16 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
             value={roles.filter(r => (form.roleIds as string[]).includes(r._id)).map(r => ({ value: r._id, label: r.name }))}
             onChange={selected => setForm({ ...form, roleIds: selected.map((s: any) => s.value) })}
             placeholder="Chọn vai trò"
-          />
+          />        
+            
+            <input
+              style={inputStyle}
+              type="text"
+              value={form.userCode ? form.userCode : ''}
+              onChange={e => setForm({ ...form, userCode: e.target.value })}             
+              placeholder="Mã nhân viên"
+            />
+           
           <label style={{ marginRight: 8 }}>
             Vào
             <input
@@ -221,6 +230,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
             <th style={thStyle}>Tổ chức</th>
             <th style={thStyle}>Vị trí</th>
             <th style={thStyle}>Vai trò</th>
+            <th style={thStyle}>Mã nhân viên</th>
             <th style={thStyle}>Hoạt động</th>
             <th style={thStyle}>Nhiệm vụ chính</th>
             <th style={thStyle}>Vào</th>
@@ -261,6 +271,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
                   : 'Chưa có vai trò'
                 }
               </td>
+              <td style={tdStyle}>{a.userCode ? a.userCode : 'Nhân viên chưa có mã'}</td>
               <td style={tdStyle}>{a.isActive ? '✔️' : '❌'}</td>
               <td style={tdStyle}>{a.isPrimary ? '✔️' : '❌'}</td>
               <td style={tdStyle}>{a.timeIn ? new Date(a.timeIn).toLocaleDateString() : ''}</td>

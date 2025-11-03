@@ -3,6 +3,7 @@ export interface UserAssignment {
   userId: string | { _id: string };
   organizationId: string | { _id: string } 
   positionId: string | { _id: string };
+  userCode?: string;
   roleIds: string[];
   isActive: boolean;
   isPrimary: boolean;

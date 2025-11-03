@@ -2,16 +2,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getDayNameFromDate } from "@/utils/date-helpers";
-import { getUsersUnderOrganizations, getUserWithOrganizationUnder } from "@/lib/api/users";
+import useSWR from "swr";
 import { UserWithOrganization } from "@/types";
 import { Organization as OrganizationType } from "@/types/organization";
-import { getOrganizations } from "@/lib/api/organizations";
-import useSWR from "swr";
-
 
 // ==== CONFIG ====
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const USE_MULTIPART = false; // true => send raw file to backend; false => send normalized JSON rows
 const PAGE_SIZE = 20;
 const TZ = "Asia/Bangkok";
 type ObjectId = string;
@@ -19,6 +15,7 @@ type ObjectId = string;
 // Minimal types
 interface LogRow {
   userId: string;
+  userCode?: string;
   timestamp: string; // ISO
   kind?: "IN" | "OUT";
   [key: string]: any;
@@ -26,12 +23,13 @@ interface LogRow {
 
 interface GroupRow {
   userId: string;
+  userCode?: string;
   userName: string;
   dateKey: string; // YYYY-MM-DD (local TZ)
   times: string[]; // HH:mm (local TZ) sorted asc
 }
 
-type UserLite = { _id: ObjectId; fullName: string; email?: string };
+type UserLite = { _id: ObjectId; fullName: string; email?: string; userCode?: string };
 
 const fetcher = async <T,>(url: string): Promise<T> => {
   const res = await fetch(url, { credentials: "include" });
@@ -73,36 +71,23 @@ async function api(path: string, opts: any = {}) {
   return { data: txt };
 }
 
-// // Wrapper fetchers
-// const fetcher = (p: string, q?: Record<string, any>) => api(p, { query: q });
-// async function fetchList<T = any>(p: string, q?: Record<string, any>): Promise<T[]> {
-//   const data = await fetcher(p, q);
-//   return Array.isArray(data) ? data : (data?.items ?? []);
-// }
-
-function resolveUser(u: any, map: Map<string, UserLite>) {
-  if (typeof u === 'string') return map.get(u)?.fullName || u;
-  const id = String(u?._id ?? '');
-  return u?.fullName || map.get(id)?.fullName || id;
-}
-
 // Column mapping keys we expect
 const REQUIRED_FIELDS = ["date"] as const;
 const OPTIONAL_FIELDS = ["time1", "time2", "time3", "time4", "time5", "time6"] as const; // có thể chọn 1 hoặc 2
-const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
+const USERINFO = ["userCode"] as const;
+const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS, ...USERINFO] as const;
 
 type FieldKey = (typeof ALL_FIELDS)[number];
 
 export default function AttendanceLogsPage() {
-  // ===== EXPORT helpers (bound to component for data access) =====
+  // ===== EXPORT helpers =====
   async function downloadTemplate() {
-    // Tạo file mẫu Excel: cột userId, date, timeIn, timeOut
     const XLSX = await import('xlsx');
     const rows = [
-      { date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00' },
-      { date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '' },
+      { date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00', userCode: '' },
+      { date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '', userCode: '' },
     ];
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ['date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6'] });
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6', 'userCode'] });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');
     XLSX.writeFile(wb, 'logs_import_template.xlsx');
@@ -110,8 +95,7 @@ export default function AttendanceLogsPage() {
 
   async function exportExcel() {
     const XLSX = await import('xlsx');
-    // Xuất list đang hiển thị (tất cả groupRows theo filter, không chỉ trang hiện tại)
-    const data = groupRows.map(r => ({ User: r.userName, Date: r.dateKey, Timestamps: r.times.join(' - ') }));
+    const data = groupRows.map(r => ({ User: r.userName, UserCode: r.userCode, Date: r.dateKey, Timestamps: r.times.join(' - ') }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Logs');
@@ -120,14 +104,15 @@ export default function AttendanceLogsPage() {
 
   async function exportDocx() {
     const docx = await import('docx');
-    const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun, AlignmentType } = docx as any;
+    const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType } = docx as any;
 
     const headerRow = new TableRow({
       children: [
-        new TableCell({ width: { size: 10, type: WidthType.PERCENTAGE }, children: [new Paragraph({ text: '#', alignment: AlignmentType.CENTER })] }),
-        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, children: [new Paragraph('User')] }),
-        new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph('Date')] }),
-        new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph('Timestamps (HH:mm)')] }),
+        new TableCell({ width: { size: 8, type: WidthType.PERCENTAGE }, children: [new Paragraph({ text: '#', alignment: AlignmentType.CENTER })] }),
+        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('User')] }),
+        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('UserCode')] }),
+        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('Date')] }),
+        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('Timestamps (HH:mm)')] }),
       ],
     });
 
@@ -135,6 +120,7 @@ export default function AttendanceLogsPage() {
       children: [
         new TableCell({ children: [new Paragraph(String(i + 1))] }),
         new TableCell({ children: [new Paragraph(r.userName)] }),
+        new TableCell({ children: [new Paragraph(r.userCode || '')] }),
         new TableCell({ children: [new Paragraph(r.dateKey)] }),
         new TableCell({ children: [new Paragraph(r.times.join(' - '))] }),
       ],
@@ -151,9 +137,9 @@ export default function AttendanceLogsPage() {
     const autoTable = (await import('jspdf-autotable')).default;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     doc.setFontSize(14); doc.text('Attendance Logs', 40, 40);
-    const body = groupRows.map((r, i) => [String(i + 1), r.userName, r.dateKey, r.times.join(' - ')]);
+    const body = groupRows.map((r, i) => [String(i + 1), r.userName, r.userCode || '', r.dateKey, r.times.join(' - ')]);
     // @ts-ignore
-    autoTable(doc, { startY: 60, head: [['#', 'User', 'Date', 'Timestamps (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4 } });
+    autoTable(doc, { startY: 60, head: [['#', 'User', 'UserCode', 'Date', 'Timestamps (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4 } });
     doc.save(`logs_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
@@ -162,64 +148,52 @@ export default function AttendanceLogsPage() {
     const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
-  // Filters
+
+  // ===== Filters =====
   const [userId, setUserId] = useState("");
   const [from, setFrom] = useState<string>(""); // yyyy-mm-dd
   const [to, setTo] = useState<string>("");
-  const [usersLoading, setUsersLoading] = useState(false);
-
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); // Rỗng là "Tất cả"
-
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
+  const [userCode, setUserCode] = useState("");
   const [nameFilter, setNameFilter] = useState<string>('');
+
   const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
   const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
-  const initialUserPickedRef = React.useRef(false);
-  const {
-    data: usersData,
-    error: usersError,
-    isLoading: isLoadingUsers,
-  } = useSWR<UserWithOrganization[]>(
+
+  const { data: usersData, error: usersError, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>(
     `${API_BASE}/users/withOrganizationName`,
     fetcher<UserWithOrganization[]>,
-    { revalidateOnFocus: false } // tuỳ chọn
+    { revalidateOnFocus: false }
   );
 
-  const {
-    data: orgsData,
-    error: orgsError,
-    isLoading: isLoadingOrganizations,
-  } = useSWR<OrganizationType[]>(
+  const { data: orgsData, error: orgsError, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
     `${API_BASE}/organizations`,
     fetcher<OrganizationType[]>,
-    { revalidateOnFocus: false } // tuỳ chọn
+    { revalidateOnFocus: false }
   );
 
-
-  // ánh xạ dữ liệu SWR sang biến dùng trong UI
   const users = usersData ?? EMPTY_USERS;
   const organizations = orgsData ?? EMPTY_ORGS;
 
   const filteredUsers = useMemo(() => {
     let userData = users;
-
-    // 1. Lọc theo Organization
     if (selectedOrganizationId) {
       userData = userData.filter(user => user.organizationId === selectedOrganizationId);
     }
-
-    // 2. Lọc theo Tên
     if (nameFilter) {
       const lowerCaseFilter = nameFilter.toLowerCase();
       userData = userData.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
     }
-
+    if (userCode) {
+      const code = userCode.trim();
+      userData = userData.filter(user => (user as any).userCode?.includes(code));
+    }
     return userData;
-  }, [users, selectedOrganizationId, nameFilter]);
-  // If not using global SWR in your project, replace the above with your own hook/import
+  }, [users, selectedOrganizationId, nameFilter, userCode]);
 
   const userMap = useMemo(() => new Map((users || []).map((u: any) => [String(u._id), u])), [users]);
 
-  // Logs state
+  // ===== Logs state =====
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +208,7 @@ export default function AttendanceLogsPage() {
       const key = `${r.userId}__${dateKey}`;
       const time = toHHmmLocal(new Date(r.timestamp), TZ);
       if (!bucket.has(key)) {
-        bucket.set(key, { userId: r.userId, userName, dateKey, times: [time] });
+        bucket.set(key, { userId: r.userId, userName, userCode: r.userCode, dateKey, times: [time] });
       } else {
         bucket.get(key)!.times.push(time);
       }
@@ -253,8 +227,9 @@ export default function AttendanceLogsPage() {
     return groupRows.slice(start, start + PAGE_SIZE);
   }, [groupRows, page]);
 
-  // Import dialog state
+  // ===== Import dialog state =====
   const [showImport, setShowImport] = useState(false);
+  const [useUserCodeImport, setUseUserCodeImport] = useState(false); // NEW: toggle import theo mã NV
   const [rawHeaders, setRawHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
   const [headerMap, setHeaderMap] = useState<Record<FieldKey, string | "">>({
@@ -265,27 +240,29 @@ export default function AttendanceLogsPage() {
     time4: "",
     time5: "",
     time6: "",
+    userCode: "",
   });
   const [importError, setImportError] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<LogRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-
-  // Fetch logs (FIXED to use api helper + normalize)
+  // ===== Fetch logs =====
   async function fetchLogs() {
     setLoading(true);
     setError(null);
     try {
       const query: any = {};
       if (userId) query.userId = userId;
+      if (!userId && userCode) query.userCode = userCode.trim(); // ưu tiên filter theo mã khi không chọn user
       if (from) query.from = utcStartOfDateInTz(from, TZ);
       if (to) query.to = utcEndOfDateInTz(to, TZ);
       let data: any;
-      if (userId) { data = await api(`/attendance/logs/${userId}`, { query });; }
+      if (userId) { data = await api(`/attendance/logs/${userId}`, { query }); }
       else { data = await api('/attendance/logs', { query }); }
       const items = Array.isArray(data) ? data : (data?.items ?? []);
       const normalized: LogRow[] = items.map((r: any) => ({
         userId: String(r.userId ?? r.user_id ?? r._id ?? ""),
+        userCode: r.userCode ? String(r.userCode) : (userMap.get(String(r.userId)) as any)?.userCode || "",
         timestamp: r.timestamp ? new Date(r.timestamp).toISOString() : "",
         source: r.source ?? r.device ?? r.machine ?? "",
         _raw: r,
@@ -297,34 +274,27 @@ export default function AttendanceLogsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  // Build preview from header map (unchanged)
+  // ===== Build preview from header map (only when NOT using userCode import) =====
   useEffect(() => {
+    if (useUserCodeImport) {
+      setPreviewRows([]); setImportError(null); return;
+    }
     if (!rawRows.length || !rawHeaders.length) { setPreviewRows([]); return; }
     try {
       const out: LogRow[] = [];
+      if (!userId) { setImportError('Vui lòng chọn Nhân viên ở bộ lọc trước khi import. Hoặc bật \"Sử dụng mã nhân viên\".'); setPreviewRows([]); return; }
       for (const row of rawRows) {
-        if (!userId) { setImportError('Vui lòng chọn Nhân viên ở bộ lọc trước khi import.'); setPreviewRows([]); return; }
-
         const dateCell = headerMap.date ? row[headerMap.date] : "";
         if (!dateCell) continue;
-
-        // uid là người đang chọn trên màn hình
         const uid = String(userId).trim();
-
-        // Lặp qua 6 cột thời gian
         for (let i = 1; i <= 6; i++) {
-          const field = `time${i}` as FieldKey; // time1, time2, ...
+          const field = `time${i}` as FieldKey;
           const timeCell = headerMap[field] ? row[headerMap[field]] : "";
-
           if (timeCell) {
             const ts = combineDateAndTime(dateCell, timeCell);
-            if (ts) {              // Gán loại (kind) dựa vào số thứ tự (ví dụ: lẻ là IN, chẵn là OUT)
-              // Hoặc không gán loại, để backend tự xử lý thứ tự
-
-              out.push({ userId: uid, timestamp: ts });
-            }
+            if (ts) out.push({ userId: uid, timestamp: ts });
           }
         }
       }
@@ -334,26 +304,35 @@ export default function AttendanceLogsPage() {
       setImportError(e?.message || 'Mapping failed');
       setPreviewRows([]);
     }
-  }, [rawRows, rawHeaders, headerMap]);
+  }, [rawRows, rawHeaders, headerMap, useUserCodeImport, userId]);
 
-  // Import: upload to backend (unchanged logic)
+  // ===== Import: upload to backend =====
   async function handleUpload() {
     setImportError(null);
     try {
-      if (USE_MULTIPART) {
-        const file = fileInputRef.current?.files?.[0];
-        if (!file) throw new Error('Chưa chọn file');
-        const form = new FormData();
-        form.set('file', file);
-        const res = await fetch(`${API_BASE}/attendance/logs/import`, { method: 'POST', body: form });
+      const file = fileInputRef.current?.files?.[0];
+      if (!file) throw new Error('Chưa chọn file');
+
+      if (useUserCodeImport) {
+        // 1) Dùng endpoint multipart, backend tự đọc userCode trong file
+        const payload = await buildPayloadFromUserCode(rawRows, headerMap);
+        if (!payload.length) throw new Error("Không ánh xạ được userId từ bất kỳ userCode nào");
+
+        const res = await fetch(`${API_BASE}/attendance/logs/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } else {
-        if (!userId) throw new Error('Vui lòng chọn Nhân viên ở bộ lọc trước khi tải lên.');
-
+        // 2) Dùng endpoint bulk theo user đã chọn
+        if (!userId) throw new Error('Vui lòng chọn Nhân viên ở bộ lọc hoặc bật \"Sử dụng mã nhân viên\".');
         const bad = previewRows.filter((r) => !r.userId || !r.timestamp);
         if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);
         const payload = previewRows.map(({ userId, timestamp }) => ({ userId, timestamp }));
-        const res = await fetch(`${API_BASE}/attendance/logs/bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await fetch(`${API_BASE}/attendance/logs/bulk`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
       await fetchLogs();
@@ -362,7 +341,7 @@ export default function AttendanceLogsPage() {
     } catch (e: any) {
       setImportError(e?.message || 'Upload thất bại');
     }
-  }
+  };
 
   function resetImport() {
     setRawHeaders([]); setRawRows([]);
@@ -370,12 +349,14 @@ export default function AttendanceLogsPage() {
       date: '',
       time1: '', time2: '', time3: '',
       time4: '', time5: '', time6: '',
+      userCode: '',
     });
     setPreviewRows([]);
+    setUseUserCodeImport(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }
+  };
 
-  // Parse local file (xlsx/csv)
+  // ===== Parse local file (xlsx/csv) =====
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setImportError(null);
     const file = e.target.files?.[0]; if (!file) return;
@@ -386,27 +367,26 @@ export default function AttendanceLogsPage() {
       const find = (keys: string[]) => lower.find(({ k }) => keys.some((kk) => k.includes(kk)))?.h || '';
       setHeaderMap({
         date: find(['date', 'ngay', 'ngày', 'yyyy', 'tháng', 'day']),
-        // Logic tìm 6 cột time: tìm cột có chứa 'time', 'giờ', 'in', 'out', hoặc '1', '2', ...
-        time1: find(['time 1', 'time1', 'giờ 1', '1', 'in']), // Ví dụ: Cột đầu tiên có thể là 'in'
-        time2: find(['time 2', 'time2', 'giờ 2', '2', 'out']),// Ví dụ: Cột thứ hai có thể là 'ou
+        time1: find(['time 1', 'time1', 'giờ 1', '1', 'in']),
+        time2: find(['time 2', 'time2', 'giờ 2', '2', 'out']),
         time3: find(['time 3', 'time3', 'giờ 3', '3']),
         time4: find(['time 4', 'time4', 'giờ 4', '4']),
         time5: find(['time 5', 'time5', 'giờ 5', '5']),
         time6: find(['time 6', 'time6', 'giờ 6', '6']),
+        userCode: find(['manv', 'mã nhân viên', 'usercode', 'code']),
       });
     } catch (e: any) {
       setImportError(e?.message || 'Không đọc được file');
       resetImport();
     }
-  }
+  };
 
   return (
     <div className="mx-auto max-w-7xl p-6 space-y-6">
-      {/* Export modals/messages could go here */}
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Chấm công · Dữ liệu thô</h1>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <button onClick={() => setShowImport(true)} disabled={!userId} className="px-3 py-2 rounded-xl border hover:bg-gray-50">Import Logs</button>
+          <button onClick={() => setShowImport(true)} className="px-3 py-2 rounded-xl border hover:bg-gray-50">Import Logs</button>
           <button onClick={fetchLogs} className="px-3 py-2 rounded-xl bg-black text-white hover:opacity-90">Tải dữ liệu</button>
           <div className="w-px h-6 bg-gray-300 mx-2" />
           <button onClick={downloadTemplate} className="px-3 py-2 rounded-xl border hover:bg-gray-50" title="Tải file mẫu nhập logs">File mẫu</button>
@@ -418,9 +398,9 @@ export default function AttendanceLogsPage() {
 
       {/* Filters */}
       {usersError && (
-        <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">Lỗi tải danh sách nhân viên: {usersError}</div>
+        <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">Lỗi tải danh sách nhân viên: {String(usersError)}</div>
       )}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-3 bg-white p-4 rounded-xl shadow-sm">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-3 bg-white p-4 rounded-xl shadow-sm">
         {/* Tổ chức */}
         <div className="flex flex-col">
           <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
@@ -432,9 +412,7 @@ export default function AttendanceLogsPage() {
           >
             <option value="">Tất cả Tổ chức</option>
             {organizations.map((org) => (
-              <option key={org._id} value={org._id}>
-                {org.name}
-              </option>
+              <option key={org._id} value={org._id}>{org.name}</option>
             ))}
           </select>
         </div>
@@ -451,6 +429,18 @@ export default function AttendanceLogsPage() {
           />
         </div>
 
+        {/* Mã nhân viên */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Mã nhân viên (userCode)</label>
+          <input
+            type="text"
+            placeholder="Nhập mã nhân viên..."
+            value={userCode}
+            onChange={(e) => setUserCode(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
         {/* Chọn nhân viên */}
         <div className="flex flex-col">
           <label className="text-sm font-medium text-gray-700 mb-1">Nhân viên</label>
@@ -462,8 +452,7 @@ export default function AttendanceLogsPage() {
             <option value="">Tất cả nhân viên</option>
             {(filteredUsers || []).map((u: any) => (
               <option key={String(u._id)} value={String(u._id)}>
-                {u.fullName}
-                {u.email ? ` — ${u.email}` : ""}
+                {u.fullName}{u.email ? ` — ${u.email}` : ""}{u.userCode ? ` — ${u.userCode}` : ''}
               </option>
             ))}
           </select>
@@ -500,7 +489,6 @@ export default function AttendanceLogsPage() {
         </div>
       </section>
 
-
       {/* Grouped Table */}
       <section className="border rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -509,22 +497,24 @@ export default function AttendanceLogsPage() {
               <tr className="text-left">
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">UserCode</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Timestamps (HH:mm)</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-4 py-6" colSpan={4}>Đang tải…</td></tr>
+                <tr><td className="px-4 py-6" colSpan={5}>Đang tải…</td></tr>
               ) : error ? (
-                <tr><td className="px-4 py-6 text-red-600" colSpan={4}>{error}</td></tr>
+                <tr><td className="px-4 py-6 text-red-600" colSpan={5}>{error}</td></tr>
               ) : paged.length === 0 ? (
-                <tr><td className="px-4 py-6 text-gray-500" colSpan={4}>Không có dữ liệu</td></tr>
+                <tr><td className="px-4 py-6 text-gray-500" colSpan={5}>Không có dữ liệu</td></tr>
               ) : (
                 paged.map((r, idx) => (
                   <tr key={`${r.userId}-${r.dateKey}`} className="odd:bg-white even:bg-gray-50">
                     <td className="px-4 py-2">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-4 py-2 font-medium">{r.userName}</td>
+                    <td className="px-4 py-2">{r.userCode || ''}</td>
                     <td className="px-4 py-2">{getDayNameFromDate(r.dateKey)} - {r.dateKey}</td>
                     <td className="px-4 py-2 whitespace-pre-wrap">{r.times.join(' - ')}</td>
                   </tr>
@@ -544,7 +534,7 @@ export default function AttendanceLogsPage() {
         </div>
       </section>
 
-      {/* Import Modal (giữ nguyên phần parse + preview) */}
+      {/* Import Modal */}
       {showImport && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 space-y-4">
@@ -553,11 +543,29 @@ export default function AttendanceLogsPage() {
               <button onClick={() => { setShowImport(false); resetImport(); }} className="p-2 rounded-lg hover:bg-gray-100">✕</button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
+                <input
+                  id="useUserCode"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={useUserCodeImport}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const checked = e.currentTarget.checked;
+                    setUseUserCodeImport(checked);
+                    if (checked) setUserId("");
+                  }}
+                />
+                <label htmlFor="useUserCode" className="text-sm text-gray-700">
+                  Sử dụng mã nhân viên (userCode) trong file để xác định người dùng (tự động bỏ chọn nếu đang chọn).
+                </label>
+              </div>
+
+
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="block w-full text-sm" />
               {importError && (<div className="text-sm text-red-600">{importError}</div>)}
 
-              {!!rawHeaders.length && (
+              {!useUserCodeImport && !!rawHeaders.length && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   {(ALL_FIELDS as ReadonlyArray<FieldKey>).map((field) => (
                     <div key={field} className="flex flex-col gap-1">
@@ -571,16 +579,16 @@ export default function AttendanceLogsPage() {
                 </div>
               )}
 
-              {!!previewRows.length && (
+              {!useUserCodeImport && !!previewRows.length && (
                 <div className="border rounded-xl overflow-hidden">
                   <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 10)</div>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">                     
+                    <table className="min-w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr className="text-left">
                           <th className="px-3 py-2">#</th>
                           <th className="px-3 py-2">userId</th>
-                          <th className="px-3 py-2" colSpan={2}>timestamp</th> {/* Tùy chọn colSpan */}
+                          <th className="px-3 py-2" colSpan={2}>timestamp</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -599,7 +607,13 @@ export default function AttendanceLogsPage() {
 
               <div className="flex items-center justify-end gap-2">
                 <button onClick={() => { setShowImport(false); resetImport(); }} className="px-3 py-2 rounded-xl border">Hủy</button>
-                <button onClick={handleUpload} className="px-3 py-2 rounded-xl bg-black text-white hover:opacity-90 disabled:opacity-50" disabled={USE_MULTIPART ? !fileInputRef.current?.files?.length : previewRows.length === 0}>Tải lên</button>
+                <button
+                  onClick={handleUpload}
+                  className="px-3 py-2 rounded-xl bg-black text-white hover:opacity-90 disabled:opacity-50"
+                  disabled={!fileInputRef.current?.files?.length || (!useUserCodeImport && previewRows.length === 0)}
+                >
+                  Tải lên
+                </button>
               </div>
             </div>
           </div>
@@ -610,10 +624,14 @@ export default function AttendanceLogsPage() {
 }
 
 // ===== Helpers =====
+function resolveUser(u: any, map: Map<string, UserLite>) {
+  if (typeof u === 'string') return map.get(u)?.fullName || u;
+  const id = String(u?._id ?? '');
+  return (u as any)?.fullName || map.get(id)?.fullName || id;
+}
+
 function tzOffsetMs(tz: string, d: Date) {
-  // Asia/Bangkok không DST (UTC+7), tối ưu: trả về hằng số
   if (tz === 'Asia/Bangkok') return 7 * 60 * 60 * 1000;
-  // Dự phòng: tính offset từ Intl (trường hợp đổi tz sau này)
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
@@ -648,8 +666,7 @@ function toHHmmLocal(d: Date, tz: string) {
   return `${hh}:${mm}`;
 }
 
-
-// ===== XLSX/CSV parsing (kept from your version) =====
+// ===== XLSX/CSV parsing =====
 async function parseSpreadsheet(file: File): Promise<{ headers: string[]; rows: any[] }> {
   const ext = file.name.toLowerCase();
   if (ext.endsWith(".csv")) { const text = await file.text(); return parseCsv(text); }
@@ -691,7 +708,7 @@ function splitCsvLine(line: string): string[] {
   out.push(cur); return out.map((s) => s.trim());
 }
 
-// ===== Import helpers kept from your version =====
+// ===== Import helpers =====
 function combineDateAndTime(dateCell: any, timeCell: any): string | null {
   const datePart = toDateFromCell(dateCell); const timePart = toTimePartsFromCell(timeCell);
   if (!datePart || !timePart) return null; const d = new Date(datePart);
@@ -717,3 +734,70 @@ function toTimePartsFromCell(v: any): { hh: number; mm: number; ss?: number } | 
   return null;
 }
 function excelSerialToDate(serial: number): Date | null { const excelEpoch = new Date(Date.UTC(1899, 11, 30)); const millis = Math.round(serial * 24 * 60 * 60 * 1000); const d = new Date(excelEpoch.getTime() + millis); return isNaN(d.getTime()) ? null : d; }
+
+async function buildPayloadFromUserCode(
+  rawRows: any[],
+  headerMap: Record<FieldKey, string | "">
+): Promise<Array<{ userId: string; timestamp: string }>> {
+  if (!rawRows.length) throw new Error("Chưa đọc được dữ liệu từ file. Hãy chọn file trước.");
+  const dateCol = headerMap.date;
+  const codeCol = headerMap.userCode;
+  if (!dateCol || !codeCol) throw new Error("Thiếu cột bắt buộc: date hoặc userCode");
+
+  // 1) tạo danh sách tạm { userCode, timestamp }
+  const temp: { userCode: string; timestamp: string }[] = [];
+  for (const row of rawRows) {
+    const code = String(row[codeCol] ?? "").trim();
+    if (!code) continue;
+    const dateCell = row[dateCol];
+    for (let i = 1; i <= 6; i++) {
+      const key = `time${i}` as FieldKey;
+      const timeCol = headerMap[key];
+      const timeCell = timeCol ? row[timeCol] : "";
+      if (!timeCell) continue;
+      const ts = combineDateAndTime(dateCell, timeCell);
+      if (ts) temp.push({ userCode: code, timestamp: ts });
+    }
+  }
+  if (!temp.length) return [];
+
+  // 2) prefetch userId theo mã
+  const codeToUserId = await prefetchAssignmentsByCode(temp.map(r => r.userCode));
+  console.log('codeToUserId', codeToUserId)
+
+  // 3) build payload, loại bỏ dòng không map được
+  const seen = new Set<string>();
+  const payload = temp
+    .map(r => ({ userId: codeToUserId.get(r.userCode) || "", timestamp: r.timestamp }))
+    .filter(x => x.userId && x.timestamp)
+    .filter(x => {
+      const k = `${x.userId}|${x.timestamp}`;
+      if (seen.has(k)) return false; // trùng trong payload
+      seen.add(k);
+      return true;
+    });
+
+  return payload;
+}
+
+async function prefetchAssignmentsByCode(codes: string[]) {
+  const unique = Array.from(new Set(codes.filter(Boolean)));
+  const codeToUserId = new Map<string, string>();
+
+  await Promise.all(
+    unique.map(async (code) => {
+      const resp = await fetch(`${API_BASE}/user-assignments/code/${encodeURIComponent(code)}`, {
+        credentials: "include",
+      });
+      if (!resp.ok) return;
+      try {
+        const data = await resp.json();        
+        const uid =
+          String(data.userId?._id) || "";
+        if (uid) codeToUserId.set(code, uid);
+      } catch { }
+    })
+  );
+
+  return codeToUserId;
+}

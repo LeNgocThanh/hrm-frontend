@@ -27,6 +27,7 @@ export interface UserWithOrganization {
   updatedAt: string;
   organizationId: string;
   organizationName: string; 
+  userCode?: string;
 }
 
 export interface CreateUserData {
@@ -111,6 +112,7 @@ export interface UserAssignment {
   user?: User;
   position?: Position;
   organization?: Organization;
+  userCode?: string;
 }
 
 // API Response types

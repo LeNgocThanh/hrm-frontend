@@ -794,8 +794,8 @@ export default function DailyAttendancePage() {
           onClick={handleExportXlsx}
           disabled={!selectedUserId || dailyRows.length === 0}
           className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-700'
             }`}
           title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export Excel')}
         >
@@ -806,8 +806,8 @@ export default function DailyAttendancePage() {
           onClick={handleExportPdf}
           disabled={!selectedUserId || dailyRows.length === 0}
           className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-red-600 hover:bg-red-700'
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-red-600 hover:bg-red-700'
             }`}
           title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export PDF')}
         >
@@ -928,6 +928,10 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
     const m = absMinutes % 60;
     const sign = minutes < 0 ? '-' : '';
     return `${sign}${h > 0 ? h + 'h' : ''}${m > 0 ? m + 'm' : ''}`;
+  };
+
+  const isOvertime = (minutes: number | undefined) => {
+   return minutes !== undefined && minutes > 480;
   };
 
   const getStatusStyle = (status: string | undefined) => {
@@ -1078,7 +1082,20 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 })()}
               </td>
               {/* Tổng Giờ Làm */}
-              <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium">
+              <td
+                // Các class hiện có để giữ layout
+                className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium"
+
+                // Thêm style có điều kiện và tooltip
+                style={{
+                  // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
+                  fontWeight: isOvertime(row.workedMinutes)? 'bold' : 'normal',
+                  color: isOvertime(row.workedMinutes)? 'red' : 'inherit',
+                }}
+
+                // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
+                title={isOvertime(row.workedMinutes)? 'Có tăng ca' : ''}
+              >
                 {formatMinutes(row.workedMinutes)}
               </td>
               {/* Đi Trễ/Về Sớm */}

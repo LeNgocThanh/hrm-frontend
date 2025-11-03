@@ -216,9 +216,9 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
   // Add session quick templates
   const addSessionTemplate = (template: 'AM' | 'PM' | 'OV') => {
     const presets: Record<'AM' | 'PM' | 'OV', ShiftSession> = {
-      AM: { code: 'AM', start: '09:00', end: '12:00', required: true, graceInMins: 0, graceOutMins: 0, breakMinutes: 0, maxCheckInEarlyMins: 0, maxCheckOutLateMins: 0 },
-      PM: { code: 'PM', start: '13:00', end: '17:00', required: true, graceInMins: 0, graceOutMins: 0, breakMinutes: 0, maxCheckInEarlyMins: 0, maxCheckOutLateMins: 0 },
-      OV: { code: 'OV', start: '20:00', end: '06:00', required: true, graceInMins: 0, graceOutMins: 0, breakMinutes: 0, maxCheckInEarlyMins: 0, maxCheckOutLateMins: 0 },
+      AM: { code: 'AM', start: '06:00', end: '14:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
+      PM: { code: 'PM', start: '14:00', end: '22:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
+      OV: { code: 'OV', start: '22:00', end: '06:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
     };
     const newSession = presets[template];
     setForm((prev) => ({
