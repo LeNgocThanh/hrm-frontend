@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserAssignment } from '@/types/user-assignment';
 import { getUserAssignmentsByUser, createUserAssignment, updateUserAssignment, deleteUserAssignment } from '@/lib/api/user-assignments';
-import { getOrganizations } from '@/lib/api/organizations';
+import { getOrganizations, getOrganizationsUnder } from '@/lib/api/organizations';
 import { getPositions } from '@/lib/api/positions';
 import { getRoles } from '@/lib/api/roles';
 import { Organization } from '@/types/organization';
@@ -68,7 +68,7 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
   const fetchAll = async () => {
     const assignmentsData = await getUserAssignmentsByUser(userId);   
     setAssignments(assignmentsData);
-    setOrganizations(await getOrganizations());
+    setOrganizations(await getOrganizationsUnder());
     setPositions(await getPositions());
     setRoles(await getRoles());
   };
@@ -81,8 +81,9 @@ const UserAssignments: React.FC<Props> = ({ userId, viewMode = false }) => {
     const roleIds = Array.isArray(form.roleIds)
       ? form.roleIds.map(rid => typeof rid === 'string' ? rid : (rid as { _id: string })._id)
       : [];
+    const userCode = form.userCode === ''? undefined : form.userCode;  
 
-    const payload = { ...form, userId, roleIds };
+    const payload = { ...form, userId, roleIds, userCode };
     if (editingId) {
       await updateUserAssignment(editingId, payload);
     } else {

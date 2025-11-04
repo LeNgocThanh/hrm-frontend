@@ -47,7 +47,7 @@ export default function OrganizationsManagement() {
   const fetchOrganizations = async () => {
     try {
       //const result = await apiCall('/auth/profile');
-      const data = await apiClient.get<Organization[]>('/organizations');
+      const data = await apiClient.get<Organization[]>('/organizations/under');
       setOrganizations(data);
       buildTree(data);
     } catch (err) {
@@ -77,7 +77,9 @@ export default function OrganizationsManagement() {
     });
 
     // Lấy root nodes
-    const roots = Array.from(orgMap.values()).filter(org => !org.parent);
+    const roots = Array.from(orgMap.values()).filter(org => 
+        !org.parent || !orgMap.has(org.parent)
+    );
     setTreeData(roots);
   };
 

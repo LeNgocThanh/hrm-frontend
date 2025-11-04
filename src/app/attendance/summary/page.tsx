@@ -117,7 +117,7 @@ export default function MonthlyAttendanceSummaryPage() {
 
   // Users
   const { data: users, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>("/users/withOrganizationName", api);
-  const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations", api);
+  const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations/under", api);
 
 const allUsers = users ?? EMPTY_USERS;
 const organizations = orgsData ?? EMPTY_ORGS;

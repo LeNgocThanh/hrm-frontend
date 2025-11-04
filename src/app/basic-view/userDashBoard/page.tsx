@@ -32,7 +32,7 @@ import { UserDocumentResponse, DocTypeEnum } from "@/types/userDocument";
 import { UserProfile, EDUCATION_LEVELS } from "@/types/userProfile";
 import { Position } from "@/types/position";
 
-import { getUsers } from "@/lib/api/users";
+import { getUsers, getUsersUnderOrganizations } from "@/lib/api/users";
 import { getUserAssignmentsByUser } from "@/lib/api/user-assignments";
 import { getUserDocument } from "@/lib/api/userDocument";
 import { getPositions } from "@/lib/api/positions";
@@ -138,7 +138,7 @@ const HRUsersDashboard: React.FC = () => {
       try {
         setLoading(true);
         const [usersData, positionsData] = await Promise.all([
-          getUsers(),
+          getUsersUnderOrganizations(),
           getPositions(),
         ]);
 

@@ -347,7 +347,7 @@ export default function DailyAttendancePage() {
     error: orgsError,
     isLoading: isLoadingOrganizations,
   } = useSWR<OrganizationType[]>(
-    `${API_BASE}/organizations`,
+    `${API_BASE}/organizations/under`,
     fetcher<OrganizationType[]>,
     { revalidateOnFocus: false } // tuỳ chọn
   );

@@ -167,7 +167,7 @@ export default function AttendanceLogsPage() {
   );
 
   const { data: orgsData, error: orgsError, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
-    `${API_BASE}/organizations`,
+    `${API_BASE}/organizations/under`,
     fetcher<OrganizationType[]>,
     { revalidateOnFocus: false }
   );

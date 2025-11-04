@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Bell from "@/components/notifications/Bell";
-import { boolean } from "zod";
 
 const navigationItems = [
   {
@@ -63,7 +62,7 @@ const navigationItems = [
     icon: "📅",
     children: [
       { name: "Lịch sử chấm công", href: "/attendance/logs", icon: "📊📅" },
-      { name: "CÔng theo ngày", href: "/attendance/dailly", icon: "🛠️📅" },
+      { name: "Công theo ngày", href: "/attendance/dailly", icon: "🛠️📅" },
       { name: "Công tháng", href: "/attendance/summary", icon: "🛠️📅" },
       { name: "Tạo ca", href: "/attendance/shiftType", icon: "🔎📅" },
       { name: "Gán ca", href: "/attendance/user-policy", icon: "🔎📅" },

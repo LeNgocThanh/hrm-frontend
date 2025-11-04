@@ -44,8 +44,7 @@ export default function UsersManagement() {
 
   const [showUserAssignments, setShowUserAssignments] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
-  const userInfo = sessionStorage.getItem('userInfo');
-
+  
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -518,19 +517,19 @@ export default function UsersManagement() {
                   value={formData.phone}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('phone', e.target.value)}
                 />
-                <Input
+                {/* <Input
                   label="Avatar URL"
                   value={formData.avatarUrl}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('avatarUrl', e.target.value)}
-                />
+                /> */}
                 <Select
-                  label="Employee Status"
+                  label="Trạng thái làm việc (đang làm/chưa kích hoạt/đã nghỉ)"
                   value={formData.employeeStatus}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('employeeStatus', e.target.value)}
                   options={[
-                    { value: 'active', label: 'Active' },
-                    { value: 'inactive', label: 'Inactive' },
-                    { value: 'terminated', label: 'Terminated' }
+                    { value: 'active', label: 'Đang làm' },
+                    { value: 'inactive', label: 'Chưa kích hoạt' },
+                    { value: 'terminated', label: 'Đã nghỉ' }
                   ]}
                 />
               </div>

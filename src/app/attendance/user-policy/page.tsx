@@ -417,7 +417,7 @@ const UserShiftPolicyPage: React.FC = () => {
     const [usersLoading, setUsersLoading] = useState(false);
     
     const { data: users, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>("/users/withOrganizationName", api);
-    const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations", api);
+    const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>("/organizations/under", api);
 
     const allUsers = users ?? EMPTY_USERS;
     const organizations = orgsData ?? EMPTY_ORGS;
@@ -559,19 +559,7 @@ const UserShiftPolicyPage: React.FC = () => {
     };
 
 
-    const selectedUser = users?.find(u => u._id === selectedUserId);
-
-    // Xử lý khi có lỗi tải User
-    // if (usersError) {
-    //     return (
-    //         <div className="min-h-screen p-8 bg-gray-50 flex items-center justify-center">
-    //             <div className="text-center p-6 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg shadow-md">
-    //                 <p className="font-bold text-lg">Lỗi tải danh sách người dùng:</p>
-    //                 <p className="mt-2 text-sm">{usersError.message || 'Không thể kết nối đến máy chủ User API.'}</p>
-    //             </div>
-    //         </div>
-    //     );
-    // }
+    const selectedUser = users?.find(u => u._id === selectedUserId);    
 
     // UI Loading tổng thể
     if (isLoadingUsers && !users) {

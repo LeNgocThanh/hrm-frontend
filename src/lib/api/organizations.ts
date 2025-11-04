@@ -10,6 +10,19 @@ export async function getOrganizations(): Promise<Organization[]> {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function getOrganizationsUnder(): Promise<Organization[]> {
+  const res = await fetch(`${API_URL}/organizations/under`, {
+    cache: 'no-store',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
   });
   return res.json();
 }
@@ -21,6 +34,7 @@ export async function createOrganization(data: Partial<Organization>): Promise<O
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   return res.json();
@@ -33,6 +47,7 @@ export async function updateOrganization(id: string, data: Partial<Organization>
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   return res.json();
@@ -41,7 +56,8 @@ export async function updateOrganization(id: string, data: Partial<Organization>
 export async function deleteOrganization(id: string): Promise<void> {
   await fetch(`${API_URL}/organizations/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${accessToken}` }
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+    credentials: 'include',
   });
 } 
 
@@ -52,6 +68,7 @@ export async function getOrganizationsTree(): Promise<Organization[]> {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
   });
   return res.json();
 }
