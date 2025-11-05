@@ -120,17 +120,12 @@ interface DailyRow {
   [key: string]: any;
 }
 
-// UserLite bây giờ là interface cho người dùng từ API /users/by-organization
 interface UserLite {
   _id: string;
   name?: string; // Dùng làm fallback
   fullName: string; // Tên hiển thị chính
   timezone: string;
 }
-
-// Loại bỏ hằng số ALL_USERS giả lập
-// const ALL_USERS: UserLite[] = [...];
-
 
 const DEFAULT_TIMEZONE = 'Asia/Bangkok';
 
@@ -214,7 +209,7 @@ function getEndOfDayInTz(dateKey: string, tz: string = DEFAULT_TIMEZONE): string
 
 // Hàm nhóm và tổng hợp Time Entries
 const groupAndSummarizeTimeEntries = (entries: UserTimeEntry[], tz: string): Map<string, TimeEntrySummary> => {
-  // ... (Logic giữ nguyên)
+ 
   const map = new Map<string, TimeEntrySummary>();
 
   entries.forEach(entry => {
@@ -441,16 +436,19 @@ export default function DailyAttendancePage() {
     PM: { checkIn: string; checkOut: string };
     OV: { checkIn: string; checkOut: string };
     editNote: string;
+    lateMinutes: number;
+    earlyLeaveMinutes: number;
+    workedMinutes: number;
   }>({
     AM: { checkIn: '', checkOut: '' },
     PM: { checkIn: '', checkOut: '' },
     OV: { checkIn: '', checkOut: '' },
     editNote: '',
+    lateMinutes: 0,
+    earlyLeaveMinutes: 0,
+    workedMinutes: 0,
   });
-
-
-  // useEffect để tải danh sách người dùng
-  // USERS via SWR
+  
   const {
     data: usersData,
     error: usersError,
@@ -837,6 +835,9 @@ export default function DailyAttendancePage() {
           row?.ov?.lastOut ? toHHmmLocal(row.ov.lastOut, currentUserTz) : '',
       },
       editNote: row?.editNote ?? '',
+      lateMinutes: row?.lateMinutes ?? 0,
+      earlyLeaveMinutes: row?.earlyLeaveMinutes ?? 0,
+      workedMinutes: row?.workedMinutes ?? 0,
     });
     setManualModalOpen(true);
   };
@@ -850,6 +851,9 @@ export default function DailyAttendancePage() {
       dateKey: manualEditing.dateKey,        // "YYYY-MM-DD"
       tz: currentUserTz,                     // "Asia/Bangkok"
       editNote: manualForm.editNote,
+      lateMinutes: manualForm.lateMinutes,
+      earlyLeaveMinutes: manualForm.earlyLeaveMinutes,
+      workedMinutes: manualForm.workedMinutes,
       times: {
         AM: {
           checkIn: manualForm.AM.checkIn || undefined,
@@ -1216,12 +1220,8 @@ export default function DailyAttendancePage() {
         // sang user khác
         flushUserSummary();
         addTitleAndHeader();
-        stt = 1;
-
-        // QUAN TRỌNG: set currentUserId cho user mới
-        currentUserId = r.userId;
-
-        // (accumulators đã reset trong flushUserSummary)
+        stt = 1;       
+        currentUserId = r.userId;       
       }
 
       const u = userById.get(r.userId);
@@ -1494,6 +1494,43 @@ export default function DailyAttendancePage() {
                 rows={2}
                 placeholder="Lý do chỉnh sửa..."
               />
+            </div>
+
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Phút đi trễ</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={manualForm.lateMinutes ?? 0}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, lateMinutes: Number(e.target.value) }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-right"
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Phút về sớm</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={manualForm.earlyLeaveMinutes ?? 0}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, earlyLeaveMinutes: Number(e.target.value) }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-right"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Phút công</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={manualForm.workedMinutes ?? 0}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, workedMinutes: Number(e.target.value) }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-right"
+                  placeholder="0"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -1892,8 +1929,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
 async function exportToPdf(rows: Array<Record<string, any>>, filename: string) {
   if (!rows?.length) return;
 
-  // Chọn cột hiển thị để vừa trang A4 (landscape)
-  // Nếu muốn đủ cột, vẫn được – nhưng PDF sẽ nhỏ chữ hơn.
   const columns = [
     'Date', 'ShiftType', 'AM_IN', 'AM_OUT', 'PM_IN', 'PM_OUT',
     'WorkedMinutes', 'LateMinutes', 'EarlyLeaveMinutes',
