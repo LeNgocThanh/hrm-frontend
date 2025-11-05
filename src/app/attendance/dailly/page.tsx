@@ -355,7 +355,7 @@ function collectCheckOutEdits(row: any): Date[] {
 // Gom firstIn / lastOut gốc theo phiên
 function collectFirstIns(row: any): Date[] {
   const { am, pm, ov } = getSessionsRoot(row);
-  const keys = ['firstIn','first_in','first'];
+  const keys = ['firstIn', 'first_in', 'first'];
   const out: Date[] = [];
   for (const ses of [am, pm, ov]) {
     if (!ses) continue;
@@ -368,7 +368,7 @@ function collectFirstIns(row: any): Date[] {
 
 function collectLastOuts(row: any): Date[] {
   const { am, pm, ov } = getSessionsRoot(row);
-  const keys = ['lastOut','last_out','last'];
+  const keys = ['lastOut', 'last_out', 'last'];
   const out: Date[] = [];
   for (const ses of [am, pm, ov]) {
     if (!ses) continue;
@@ -397,8 +397,8 @@ function resolveCheckOut(row: any): Date | null {
 // Format HH:mm theo timezone trình duyệt (UTC 'Z' sẽ tự lệch sang giờ VN nếu máy ở VN)
 function hhmm(d: Date | null): string {
   if (!d) return '';
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
 }
 
@@ -894,127 +894,179 @@ export default function DailyAttendancePage() {
   };
 
   const handleExportXlsx = async () => {
-  if (!selectedUserId || dailyRows.length === 0) return;
+    if (!selectedUserId || dailyRows.length === 0) return;
 
-  // Chuẩn bị thông tin chung
- 
-  const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
-  const userCode = selectedUser?.userCode || "";
-  const orgName = organizations.find(o => o._id === selectedOrganizationId)?.name || 'Tổ chức';
-  const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    // Chuẩn bị thông tin chung
 
-  // === Tạo file Excel đẹp ===
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('ChiTietChamCong', {
-    views: [{ state: 'frozen', ySplit: 3 }],
-  });
+    const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
+    const userCode = selectedUser?.userCode || "";
+    const orgName = organizations.find(o => o._id === selectedOrganizationId)?.name || 'Tổ chức';
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
 
-  // Row 1: trống
-  ws.addRow([]);
-
-  // Row 2: tiêu đề
-  const title = `CHI TIẾT CHẤM CÔNG`;
-  ws.addRow([title]);
-  ws.mergeCells(2, 1, 2, 12);
-  const r2 = ws.getRow(2);
-  r2.height = 24;
-  r2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
-  r2.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
-
-  // Row 3: header tiếng Việt
-  const header = [
-    'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
-    'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ (phút)',
-    'Sớm (phút)', 'Công', 'Tổng giờ', 'Ghi chú'
-  ];
-  ws.addRow(header);
-  const headerRow = ws.getRow(3);
-  headerRow.font = { name: 'Times New Roman', bold: true };
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-  headerRow.height = 20;
-
-  // === Ghi dữ liệu ===
-  let stt = 1;
-  for (const r of dailyRows) {
-    const dateObj = new Date(r.dateKey);
-    const weekday = WEEKDAY_VI[dateObj.getUTCDay()];
-
-    // Giờ vào / ra theo logic chuẩn hóa mới
-    const gioVao = hhmm(resolveCheckIn(r));
-    const gioRa  = hhmm(resolveCheckOut(r));
-
-    // Phút trễ, sớm, tổng giờ & công
-    const late = r.lateMinutes ?? 0;
-    const early = r.earlyLeaveMinutes ?? 0;
-    const worked = r.workedMinutes ?? r.workMinutes ?? 0;
-    const tongGio = round2(worked / 60);
-    const cong = round2(worked / 480); // 8h = 1 công
-    const editNote = r.editNote ?? '';
-
-    ws.addRow([
-      stt++,
-      userCode,
-      userName,
-      orgName,
-      fmtDateVi(dateObj),
-      weekday,
-      gioVao,
-      gioRa,
-      late,
-      early,
-      cong,
-      tongGio,
-      editNote
-    ]);
-  }
-
-  // === Định dạng bảng ===
-  const lastRow = ws.lastRow?.number ?? 3;
-  for (let r = 3; r <= lastRow; r++) {
-    for (let c = 1; c <= 13; c++) {
-      const cell = ws.getCell(r, c);
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' },
-      };
-      cell.font = { name: 'Times New Roman', size: 13 };
-    }
-  }
-
-  // Căn giữa, phải, trái
-  ws.getColumn(1).alignment = { horizontal: 'center' }; // STT
-  ws.getColumn(2).alignment = { horizontal: 'center' }; // Mã NV
-  ws.getColumn(5).alignment = { horizontal: 'center' }; // Ngày
-  ws.getColumn(6).alignment = { horizontal: 'center' }; // Thứ
-  ws.getColumn(7).alignment = { horizontal: 'center' }; // Giờ vào
-  ws.getColumn(8).alignment = { horizontal: 'center' }; // Giờ ra
-  ws.getColumn(9).alignment = { horizontal: 'right' };  // Trễ
-  ws.getColumn(10).alignment = { horizontal: 'right' }; // Sớm
-  ws.getColumn(11).alignment = { horizontal: 'right' }; // Công
-  ws.getColumn(12).alignment = { horizontal: 'right' }; // Tổng giờ
-  ws.getColumn(13).alignment = { horizontal: 'right' };
-
-  // Auto-fit width
-  const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
-  for (let c = 1; c <= 13; c++) {
-    const col = ws.getColumn(c);
-    let maxLen = (header[c - 1] || '').length + 2;
-    col.eachCell({ includeEmpty: true }, cell => {
-      const v = cell.value ?? '';
-      const l = v.toString().length + 2;
-      if (l > maxLen) maxLen = l;
+    // === Tạo file Excel đẹp ===
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('ChiTietChamCong', {
+      views: [{ state: 'frozen', ySplit: 3 }],
     });
-    col.width = Math.max(minWidths[c - 1], Math.min(maxLen, 40));
-  }
 
-  // === Xuất file ===
-  const safeName = userName.replace(/\s+/g, '_');
-  const fileName = `ChiTietChamCong_${safeName}_${range}.xlsx`;
-  const buf = await wb.xlsx.writeBuffer();
-  saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
-};
+    // Row 1: trống
+    ws.addRow([]);
+
+    // Row 2: tiêu đề
+    const title = `CHI TIẾT CHẤM CÔNG`;
+    ws.addRow([title]);
+    ws.mergeCells(2, 1, 2, 12);
+    const r2 = ws.getRow(2);
+    r2.height = 24;
+    r2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    r2.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
+
+    // Row 3: header tiếng Việt
+    const header = [
+      'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
+      'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ (phút)',
+      'Sớm (phút)', 'Công', 'Tổng giờ', 'Ghi chú'
+    ];
+    ws.addRow(header);
+    const headerRow = ws.getRow(3);
+    headerRow.font = { name: 'Times New Roman', bold: true };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    headerRow.height = 20;
+
+    // === Ghi dữ liệu ===
+    let stt = 1;
+    for (const r of dailyRows) {
+      const dateObj = new Date(r.dateKey);
+      const weekday = WEEKDAY_VI[dateObj.getUTCDay()];
+
+      // Giờ vào / ra theo logic chuẩn hóa mới
+      const gioVao = hhmm(resolveCheckIn(r));
+      const gioRa = hhmm(resolveCheckOut(r));
+
+      // Phút trễ, sớm, tổng giờ & công
+      const late = r.lateMinutes ?? 0;
+      const early = r.earlyLeaveMinutes ?? 0;
+      const worked = r.workedMinutes ?? r.workMinutes ?? 0;
+      const tongGio = round2(worked / 60);
+      const cong = round2(worked / 480); // 8h = 1 công
+      const editNote = r.editNote ?? '';
+
+      ws.addRow([
+        stt++,
+        userCode,
+        userName,
+        orgName,
+        fmtDateVi(dateObj),
+        weekday,
+        gioVao,
+        gioRa,
+        late,
+        early,
+        cong,
+        tongGio,
+        editNote
+      ]);
+    }
+
+    // === Định dạng bảng ===
+    const lastRow = ws.lastRow?.number ?? 3;
+    for (let r = 3; r <= lastRow; r++) {
+      for (let c = 1; c <= 13; c++) {
+        const cell = ws.getCell(r, c);
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+        cell.font = { name: 'Times New Roman', size: 13 };
+      }
+    }
+
+    // Căn giữa, phải, trái
+    ws.getColumn(1).alignment = { horizontal: 'center' }; // STT
+    ws.getColumn(2).alignment = { horizontal: 'center' }; // Mã NV
+    ws.getColumn(5).alignment = { horizontal: 'center' }; // Ngày
+    ws.getColumn(6).alignment = { horizontal: 'center' }; // Thứ
+    ws.getColumn(7).alignment = { horizontal: 'center' }; // Giờ vào
+    ws.getColumn(8).alignment = { horizontal: 'center' }; // Giờ ra
+    ws.getColumn(9).alignment = { horizontal: 'right' };  // Trễ
+    ws.getColumn(10).alignment = { horizontal: 'right' }; // Sớm
+    ws.getColumn(11).alignment = { horizontal: 'right' }; // Công
+    ws.getColumn(12).alignment = { horizontal: 'right' }; // Tổng giờ
+    ws.getColumn(13).alignment = { horizontal: 'right' };
+
+    const lateMinutesArr = dailyRows.map(r => r.lateMinutes ?? 0);
+    const earlyMinutesArr = dailyRows.map(r => r.earlyLeaveMinutes ?? 0);
+    const workMinutesArr = dailyRows.map(r => (r.workedMinutes ?? r.workMinutes ?? 0));
+
+    const daysLate = lateMinutesArr.filter(x => x > 0).length;
+    const totalLate = lateMinutesArr.reduce((a, b) => a + b, 0);
+
+    const daysEarly = earlyMinutesArr.filter(x => x > 0).length;
+    const totalEarly = earlyMinutesArr.reduce((a, b) => a + b, 0);
+
+    const daysWork = workMinutesArr.filter(x => x > 0).length;
+    const totalWorkM = workMinutesArr.reduce((a, b) => a + b, 0);
+    const totalWorkH = round2(totalWorkM / 60);
+    const totalWorkD = round2(totalWorkM / 480); // 8 giờ = 1 công
+
+    // Thêm 1 hàng tổng ở cuối: chỉ điền các cột 9..12 theo yêu cầu
+    const summaryRow = ws.addRow([
+      '', // 1 STT
+      '', // 2 Mã NV
+      '', // 3 Tên NV
+      '', // 4 Phòng Ban
+      '', // 5 Ngày
+      '', // 6 Thứ
+      '', // 7 Giờ vào
+      '', // 8 Giờ ra
+      `${daysLate} ngày / ${totalLate} phút`,   // 9 Trễ
+      `${daysEarly} ngày / ${totalEarly} phút`, // 10 Sớm
+      `${daysWork} ngày / ${totalWorkD}`,       // 11 Công
+      totalWorkH,                               // 12 Tổng giờ
+    ]);
+
+    // (Tuỳ chọn) ghi nhãn "TỔNG KẾT" và gộp A..H cho đẹp
+    const lastIdx = summaryRow.number;
+    ws.getCell(lastIdx, 1).value = 'TỔNG KẾT';
+    ws.mergeCells(lastIdx, 1, lastIdx, 8);
+    ws.getCell(lastIdx, 1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Định dạng dòng tổng
+    summaryRow.font = { name: 'Times New Roman', bold: true };
+    for (let c = 1; c <= 12; c++) {
+      ws.getCell(lastIdx, c).border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' }
+      };
+    }
+
+    // Căn lề các cột tổng cho dễ đọc
+    ws.getCell(lastIdx, 9).alignment = { horizontal: 'right' }; // Trễ
+    ws.getCell(lastIdx, 10).alignment = { horizontal: 'right' }; // Sớm
+    ws.getCell(lastIdx, 11).alignment = { horizontal: 'right' }; // Công
+    ws.getCell(lastIdx, 12).alignment = { horizontal: 'right' }; // Tổng giờ
+
+    // Auto-fit width
+    const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
+    for (let c = 1; c <= 13; c++) {
+      const col = ws.getColumn(c);
+      let maxLen = (header[c - 1] || '').length + 2;
+      col.eachCell({ includeEmpty: true }, cell => {
+        const v = cell.value ?? '';
+        const l = v.toString().length + 2;
+        if (l > maxLen) maxLen = l;
+      });
+      col.width = Math.max(minWidths[c - 1], Math.min(maxLen, 40));
+    }
+
+    // === Xuất file ===
+    const safeName = userName.replace(/\s+/g, '_');
+    const fileName = `ChiTietChamCong_${safeName}_${range}.xlsx`;
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
+  };
 
   const handleExportPdf = async () => {
     if (!selectedUserId || dailyRows.length === 0) return;
@@ -1087,25 +1139,105 @@ export default function DailyAttendancePage() {
     headerRow.height = 20;
 
     // Body
+    const addTitleAndHeader = () => {
+      ws.addRow([]);
+      const tRow = ws.addRow([title]);
+      ws.mergeCells(tRow.number, 1, tRow.number, 13); // A..M (13 cột)
+      tRow.height = 24;
+      tRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      tRow.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
+
+      const hRow = ws.addRow(header);
+      hRow.font = { name: 'Times New Roman', bold: true };
+      hRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      hRow.height = 20;
+    };
+
+    // biến theo dõi tích lũy cho từng user
+    let currentUserId: string | null = null;
     let stt = 1;
+
+    let accLateMin = 0;
+    let accEarlyMin = 0;
+    let accWorkMin = 0;
+    let accDaysLate = 0;
+    let accDaysEarly = 0;
+    let accDaysWork = 0;
+
+    // hàm chèn dòng tổng kết cho user đang xét
+    const flushUserSummary = () => {
+      if (!currentUserId) return;
+
+      const totalWorkH = round2(accWorkMin / 60);
+      const totalWorkD = round2(accWorkMin / 480);
+
+      const sumRow = ws.addRow([
+        '', '', '', '', '', '', '', '',
+        `${accDaysLate} ngày / ${accLateMin} phút`,
+        `${accDaysEarly} ngày / ${accEarlyMin} phút`,
+        `${accDaysWork} ngày / ${totalWorkD}`,
+        totalWorkH,
+        '' // Ghi chú
+      ]);
+      const idx = sumRow.number;
+
+      ws.getCell(idx, 1).value = 'TỔNG KẾT';
+      ws.mergeCells(idx, 1, idx, 8); // A..H
+      ws.getCell(idx, 1).alignment = { horizontal: 'center', vertical: 'middle' };
+      sumRow.font = { name: 'Times New Roman', bold: true };
+
+      // kẻ viền cho dòng tổng
+      for (let c = 1; c <= 13; c++) {
+        ws.getCell(idx, c).border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
+      }
+      ws.getCell(idx, 9).alignment = { horizontal: 'right' };
+      ws.getCell(idx, 10).alignment = { horizontal: 'right' };
+      ws.getCell(idx, 11).alignment = { horizontal: 'right' };
+      ws.getCell(idx, 12).alignment = { horizontal: 'right' };
+
+      // reset tích lũy cho user kế tiếp
+      accLateMin = 0;
+      accEarlyMin = 0;
+      accWorkMin = 0;
+      accDaysLate = 0;
+      accDaysEarly = 0;
+      accDaysWork = 0;
+    };
+
     for (const r of rows) {
+      // khi sang user mới -> chèn tổng kết + block header mới
+      if (currentUserId === null) {
+        // lần đầu tiên
+        currentUserId = r.userId;
+      } else if (r.userId !== currentUserId) {
+        // sang user khác
+        flushUserSummary();
+        addTitleAndHeader();
+        stt = 1;
+
+        // QUAN TRỌNG: set currentUserId cho user mới
+        currentUserId = r.userId;
+
+        // (accumulators đã reset trong flushUserSummary)
+      }
+
       const u = userById.get(r.userId);
       const empCode = (u as any)?.employeeCode || (u as any)?.code || '';
       const fullName = u?.fullName || r.userId;
       const deptName = (u as any)?.organizationName || '';
 
-      // dựng ngày & thứ
-      const dateObj = toLocalDate(currentUserTz, r.dateKey); // 00:00
-      const weekday = WEEKDAY_VI[(dateObj.getUTCDay())];    // 0..6
+      const dateObj = toLocalDate(currentUserTz, r.dateKey);
+      const weekday = WEEKDAY_VI[(dateObj.getUTCDay())];
 
-      // giờ vào/ra (tùy field của bạn)
       const gioVao = hhmm(resolveCheckIn(r));
       const gioRa = hhmm(resolveCheckOut(r));
 
-      // trễ/sớm/phút làm việc (tuỳ field của bạn)
       const lateMin = (r as any).lateMinutes ?? 0;
-      const earlyMin = (r as any).earlyMinutes ?? 0;
-      const workMins = (r as any).workedMinutes ?? (r as any).workingMinutes ?? 0;
+      const earlyMin = (r as any).earlyLeaveMinutes ?? (r as any).earlyMinutes ?? 0;
+      const workMins = (r as any).workedMinutes ?? (r as any).workingMinutes ?? (r as any).workMinutes ?? 0;
       const tongGio = round2(workMins / 60);
       const editNote = (r as any).editNote ?? '';
 
@@ -1120,23 +1252,34 @@ export default function DailyAttendancePage() {
         gioRa,
         lateMin,
         earlyMin,
-        round2(workMins / 480), // “Công” (mặc định 8h=1 công); đổi mẫu nếu bạn dùng cách tính khác
+        round2(workMins / 480),
         tongGio,
         editNote
       ]);
 
       row.font = { name: 'Times New Roman', size: 12 };
-      row.getCell(1).alignment = { horizontal: 'center' };           // STT
-      row.getCell(5).alignment = { horizontal: 'center' };           // Ngày
-      row.getCell(6).alignment = { horizontal: 'center' };           // Thứ
-      row.getCell(7).alignment = { horizontal: 'center' };           // Giờ vào
-      row.getCell(8).alignment = { horizontal: 'center' };           // Giờ ra
-      row.getCell(9).alignment = { horizontal: 'right' };            // Trễ
-      row.getCell(10).alignment = { horizontal: 'right' };           // Sớm
-      row.getCell(11).alignment = { horizontal: 'right' };           // Công
-      row.getCell(12).alignment = { horizontal: 'right' };           // Tổng giờ
-      row.getCell(13).alignment = { horizontal: 'right' };
+      row.getCell(1).alignment = { horizontal: 'center' }; // STT
+      row.getCell(5).alignment = { horizontal: 'center' }; // Ngày
+      row.getCell(6).alignment = { horizontal: 'center' }; // Thứ
+      row.getCell(7).alignment = { horizontal: 'center' }; // Giờ vào
+      row.getCell(8).alignment = { horizontal: 'center' }; // Giờ ra
+      row.getCell(9).alignment = { horizontal: 'right' }; // Trễ
+      row.getCell(10).alignment = { horizontal: 'right' }; // Sớm
+      row.getCell(11).alignment = { horizontal: 'right' }; // Công
+      row.getCell(12).alignment = { horizontal: 'right' }; // Tổng giờ
+      row.getCell(13).alignment = { horizontal: 'left' }; // Ghi chú
+
+      // tích lũy theo user để tổng kết
+      accLateMin += lateMin;
+      accEarlyMin += earlyMin;
+      accWorkMin += workMins;
+      if (lateMin > 0) accDaysLate += 1;
+      if (earlyMin > 0) accDaysEarly += 1;
+      if (workMins > 0) accDaysWork += 1;
     }
+
+    // tổng kết cho user cuối cùng
+    flushUserSummary();
 
     // Viền bảng (mỏng) cho toàn bộ vùng có dữ liệu
     const lastRow = ws.lastRow?.number ?? 3;
@@ -1290,7 +1433,7 @@ export default function DailyAttendancePage() {
           Export Excel
         </button>
 
-        <button
+        {/* <button
           onClick={handleExportPdf}
           disabled={!selectedUserId || dailyRows.length === 0}
           className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
@@ -1300,7 +1443,7 @@ export default function DailyAttendancePage() {
           title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export PDF')}
         >
           Export PDF
-        </button>
+        </button> */}
 
       </div>
 
