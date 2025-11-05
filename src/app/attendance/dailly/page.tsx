@@ -11,6 +11,8 @@ import useSWR from "swr";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 
 // Env
@@ -284,6 +286,123 @@ const groupAndSummarizeTimeEntries = (entries: UserTimeEntry[], tz: string): Map
 interface HasId {
   _id: string;
 }
+
+// --- Helpers thời gian (đÃ sửa theo session am/pm/ov) ---
+
+function toDatesArray(input: any): Date[] {
+  const tryParse = (v: any): Date | null => {
+    if (v == null) return null;
+    if (v instanceof Date && !isNaN(v.getTime())) return v;
+    if (typeof v === 'number') {
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof v === 'string') {
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof v === 'object') {
+      const cand = v.time ?? v.at ?? v.timestamp ?? v.value ?? v.iso ?? v.str;
+      if (cand) return tryParse(cand);
+    }
+    return null;
+  };
+  if (Array.isArray(input)) return input.map(tryParse).filter((d): d is Date => !!d);
+  const one = tryParse(input);
+  return one ? [one] : [];
+}
+
+function minDate(dates: Date[]): Date | null {
+  return dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : null;
+}
+function maxDate(dates: Date[]): Date | null {
+  return dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
+}
+
+// Lấy object chứa các phiên; chấp nhận nhiều biến thể key
+function getSessionsRoot(row: any) {
+  return {
+    am: row?.am ?? null,
+    pm: row?.pm ?? null,
+    ov: row?.ov ?? null,
+  };
+}
+
+// Thu thập tất cả checkIn_Edit trong am/pm/ov
+function collectCheckInEdits(row: any): Date[] {
+  const { am, pm, ov } = getSessionsRoot(row);
+  const out: Date[] = [];
+  for (const ses of [am, pm, ov]) {
+    if (!ses) continue;
+    const edits = toDatesArray(ses.checkIn_Edit ?? ses.checkin_edit ?? ses.checkInEdit);
+    if (edits.length) out.push(...edits);
+  }
+  return out;
+}
+
+// Gom tất cả checkOut_Edit theo phiên
+function collectCheckOutEdits(row: any): Date[] {
+  const { am, pm, ov } = getSessionsRoot(row);
+  const out: Date[] = [];
+  for (const ses of [am, pm, ov]) {
+    if (!ses) continue;
+    const edits = toDatesArray(ses.checkOut_Edit ?? ses.checkout_edit ?? ses.checkOutEdit);
+    if (edits.length) out.push(...edits);
+  }
+  return out;
+}
+
+// Gom firstIn / lastOut gốc theo phiên
+function collectFirstIns(row: any): Date[] {
+  const { am, pm, ov } = getSessionsRoot(row);
+  const keys = ['firstIn','first_in','first'];
+  const out: Date[] = [];
+  for (const ses of [am, pm, ov]) {
+    if (!ses) continue;
+    for (const k of keys) {
+      if (ses[k] != null) { out.push(...toDatesArray(ses[k])); break; }
+    }
+  }
+  return out;
+}
+
+function collectLastOuts(row: any): Date[] {
+  const { am, pm, ov } = getSessionsRoot(row);
+  const keys = ['lastOut','last_out','last'];
+  const out: Date[] = [];
+  for (const ses of [am, pm, ov]) {
+    if (!ses) continue;
+    for (const k of keys) {
+      if (ses[k] != null) { out.push(...toDatesArray(ses[k])); break; }
+    }
+  }
+  return out;
+}
+
+// Quy tắc cuối cùng
+function resolveCheckIn(row: any): Date | null {
+  const edits = collectCheckInEdits(row);
+  if (edits.length) return minDate(edits);
+  const firsts = collectFirstIns(row);
+  return minDate(firsts);
+}
+
+function resolveCheckOut(row: any): Date | null {
+  const edits = collectCheckOutEdits(row);
+  if (edits.length) return maxDate(edits);
+  const lasts = collectLastOuts(row);
+  return maxDate(lasts);
+}
+
+// Format HH:mm theo timezone trình duyệt (UTC 'Z' sẽ tự lệch sang giờ VN nếu máy ở VN)
+function hhmm(d: Date | null): string {
+  if (!d) return '';
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
+
 // --- Main Component ---
 export default function DailyAttendancePage() {
 
@@ -605,6 +724,96 @@ export default function DailyAttendancePage() {
     );
   }
 
+  const handleExportOrgXlsxOld = async () => {
+    if (!selectedOrganizationId) {
+      alert('Vui lòng chọn Tổ chức trước khi export.');
+      return;
+    }
+    const startAtISO = getStartOfDayInTz(filterFrom, currentUserTz);
+    const endAtISO = getEndOfDayInTz(filterTo, currentUserTz);
+
+    // 1) Lấy toàn bộ bản ghi daily theo cây tổ chức
+    // Nếu backend mount router khác, đổi lại path tương ứng:
+    //  - Ví dụ: `${API_BASE}/attendance/range-by-org?...`
+    const res = await fetch(
+      `${API_BASE}/attendance/daily/range-by-org?orgId=${selectedOrganizationId}&from=${startAtISO}&to=${endAtISO}`,
+      { credentials: 'include' }
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      alert(`Lỗi khi lấy dữ liệu theo tổ chức: ${res.status} ${res.statusText}\n${t}`);
+      return;
+    }
+    const orgRows: DailyRow[] = await res.json();
+
+    if (!orgRows.length) {
+      alert('Không có dữ liệu trong khoảng đã chọn.');
+      return;
+    }
+
+    // 2) Gom theo userId để (tuỳ chọn) lấy time-entries và gộp như export theo user
+    const byUser = new Map<string, DailyRow[]>();
+    for (const r of orgRows) {
+      const arr = byUser.get(r.userId) ?? [];
+      arr.push(r);
+      byUser.set(r.userId, arr);
+    }
+
+    // 3) Với từng user, gọi /user-time-entries/by-user-and-time và tổng hợp như đang làm
+    //    (để cột LeaveMinutes/OvertimeMinutes xuất ra đầy đủ “giống khi load theo user”)
+    await Promise.all(
+      [...byUser.entries()].map(async ([uid, rows]) => {
+        try {
+          const params = new URLSearchParams({
+            userId: uid,
+            startAt: startAtISO,
+            endAt: endAtISO,
+          });
+          const teRes = await fetch(`${API_BASE}/user-time-entries/by-user-and-time?${params.toString()}`, {
+            credentials: 'include'
+          });
+
+          if (!teRes.ok) return; // nếu lỗi, cứ để trống các cột liên quan
+
+          const timeEntries: UserTimeEntry[] = await teRes.json();
+          const grouped = groupAndSummarizeTimeEntries(timeEntries, currentUserTz);
+
+          // gắn summary vào từng dòng
+          const merged = rows.map(row => ({
+            ...row,
+            timeEntrySummary: grouped.get(row.dateKey) ?? {
+              leaveMinutes: 0,
+              overtimeMinutes: 0,
+              leaveDetails: [],
+              overtimeDetails: [],
+            },
+          }));
+          byUser.set(uid, merged);
+        } catch {
+          // bỏ qua, vẫn export phần daily có sẵn
+        }
+      })
+    );
+
+    // 4) Trải phẳng và build data export (giữ nguyên cấu trúc như export theo user)
+    const flattened: DailyRow[] = [...byUser.values()].flat();
+
+    const data = flattened.map((r) => {
+      // tái sử dụng buildExportRows để giữ đúng cột/format
+      const base = buildExportRows([r], currentUserTz)[0];
+      const user = allUsers.find(u => u._id === r.userId);
+      return {
+        User: user?.fullName || r.userId,
+        Organization: user?.organizationName || '',
+        ...base,
+      };
+    });
+
+    const orgName = organizations.find(o => o._id === selectedOrganizationId)?.name?.replace(/\s+/g, '_') || 'Org';
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    exportToXlsx(data, `Attendance_${orgName}_${range}.xlsx`);
+  };
+
   // ADD: mở modal với dữ liệu gợi ý từ row
   const openManualEdit = (row: DailyRow) => {
     setManualEditing({ userId: row.userId, dateKey: row.dateKey });
@@ -676,7 +885,7 @@ export default function DailyAttendancePage() {
     await fetchAttendanceDaily(selectedUserId, filterFrom, filterTo);
   };
 
-  const handleExportXlsx = () => {
+  const handleExportXlsxOld = () => {
     if (!selectedUserId || dailyRows.length === 0) return;
     const data = buildExportRows(dailyRows, currentUserTz);
     const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
@@ -684,12 +893,282 @@ export default function DailyAttendancePage() {
     exportToXlsx(data, `Attendance_${userName}_${range}.xlsx`);
   };
 
+  const handleExportXlsx = async () => {
+  if (!selectedUserId || dailyRows.length === 0) return;
+
+  // Chuẩn bị thông tin chung
+ 
+  const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
+  const userCode = selectedUser?.userCode || "";
+  const orgName = organizations.find(o => o._id === selectedOrganizationId)?.name || 'Tổ chức';
+  const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+
+  // === Tạo file Excel đẹp ===
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('ChiTietChamCong', {
+    views: [{ state: 'frozen', ySplit: 3 }],
+  });
+
+  // Row 1: trống
+  ws.addRow([]);
+
+  // Row 2: tiêu đề
+  const title = `CHI TIẾT CHẤM CÔNG`;
+  ws.addRow([title]);
+  ws.mergeCells(2, 1, 2, 12);
+  const r2 = ws.getRow(2);
+  r2.height = 24;
+  r2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  r2.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
+
+  // Row 3: header tiếng Việt
+  const header = [
+    'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
+    'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ (phút)',
+    'Sớm (phút)', 'Công', 'Tổng giờ', 'Ghi chú'
+  ];
+  ws.addRow(header);
+  const headerRow = ws.getRow(3);
+  headerRow.font = { name: 'Times New Roman', bold: true };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  headerRow.height = 20;
+
+  // === Ghi dữ liệu ===
+  let stt = 1;
+  for (const r of dailyRows) {
+    const dateObj = new Date(r.dateKey);
+    const weekday = WEEKDAY_VI[dateObj.getUTCDay()];
+
+    // Giờ vào / ra theo logic chuẩn hóa mới
+    const gioVao = hhmm(resolveCheckIn(r));
+    const gioRa  = hhmm(resolveCheckOut(r));
+
+    // Phút trễ, sớm, tổng giờ & công
+    const late = r.lateMinutes ?? 0;
+    const early = r.earlyLeaveMinutes ?? 0;
+    const worked = r.workedMinutes ?? r.workMinutes ?? 0;
+    const tongGio = round2(worked / 60);
+    const cong = round2(worked / 480); // 8h = 1 công
+    const editNote = r.editNote ?? '';
+
+    ws.addRow([
+      stt++,
+      userCode,
+      userName,
+      orgName,
+      fmtDateVi(dateObj),
+      weekday,
+      gioVao,
+      gioRa,
+      late,
+      early,
+      cong,
+      tongGio,
+      editNote
+    ]);
+  }
+
+  // === Định dạng bảng ===
+  const lastRow = ws.lastRow?.number ?? 3;
+  for (let r = 3; r <= lastRow; r++) {
+    for (let c = 1; c <= 13; c++) {
+      const cell = ws.getCell(r, c);
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+      cell.font = { name: 'Times New Roman', size: 13 };
+    }
+  }
+
+  // Căn giữa, phải, trái
+  ws.getColumn(1).alignment = { horizontal: 'center' }; // STT
+  ws.getColumn(2).alignment = { horizontal: 'center' }; // Mã NV
+  ws.getColumn(5).alignment = { horizontal: 'center' }; // Ngày
+  ws.getColumn(6).alignment = { horizontal: 'center' }; // Thứ
+  ws.getColumn(7).alignment = { horizontal: 'center' }; // Giờ vào
+  ws.getColumn(8).alignment = { horizontal: 'center' }; // Giờ ra
+  ws.getColumn(9).alignment = { horizontal: 'right' };  // Trễ
+  ws.getColumn(10).alignment = { horizontal: 'right' }; // Sớm
+  ws.getColumn(11).alignment = { horizontal: 'right' }; // Công
+  ws.getColumn(12).alignment = { horizontal: 'right' }; // Tổng giờ
+  ws.getColumn(13).alignment = { horizontal: 'right' };
+
+  // Auto-fit width
+  const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
+  for (let c = 1; c <= 13; c++) {
+    const col = ws.getColumn(c);
+    let maxLen = (header[c - 1] || '').length + 2;
+    col.eachCell({ includeEmpty: true }, cell => {
+      const v = cell.value ?? '';
+      const l = v.toString().length + 2;
+      if (l > maxLen) maxLen = l;
+    });
+    col.width = Math.max(minWidths[c - 1], Math.min(maxLen, 40));
+  }
+
+  // === Xuất file ===
+  const safeName = userName.replace(/\s+/g, '_');
+  const fileName = `ChiTietChamCong_${safeName}_${range}.xlsx`;
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
+};
+
   const handleExportPdf = async () => {
     if (!selectedUserId || dailyRows.length === 0) return;
     const data = buildExportRows(dailyRows, currentUserTz);
     const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
     const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
     await exportToPdf(data, `Attendance_${userName}_${range}.pdf`);
+  };
+
+  const handleExportOrgXlsx = async () => {
+    if (!selectedOrganizationId) {
+      alert('Vui lòng chọn Tổ chức trước khi export.');
+      return;
+    }
+
+    const startAtISO = getStartOfDayInTz(filterFrom, currentUserTz);
+    const endAtISO = getEndOfDayInTz(filterTo, currentUserTz);
+
+    const url = `${API_BASE}/attendance/daily/range-by-org`
+      + `?orgId=${encodeURIComponent(selectedOrganizationId)}`
+      + `&from=${encodeURIComponent(startAtISO)}`
+      + `&to=${encodeURIComponent(endAtISO)}`;
+
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) {
+      const t = await res.text();
+      alert(`Lỗi khi lấy dữ liệu theo tổ chức: ${res.status} ${res.statusText}\n${t}`);
+      return;
+    }
+    const rows: DailyRow[] = await res.json();
+    if (!rows?.length) {
+      alert('Không có dữ liệu trong khoảng đã chọn.');
+      return;
+    }
+
+    // Chuẩn hóa thứ tự
+    rows.sort((a, b) => a.userId.localeCompare(b.userId) || a.dateKey.localeCompare(b.dateKey));
+
+    // Tra cứu user -> lấy fullName, orgName, employeeCode
+    const userById = new Map(allUsers.map(u => [u._id, u]));
+    const orgName = organizations.find(o => o._id === selectedOrganizationId)?.name || 'Tổ chức';
+
+    // === Tạo workbook Excel “đẹp” ===
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('ChiTietChamCong', {
+      views: [{ state: 'frozen', ySplit: 3 }]  // freeze 3 dòng: trống + tiêu đề + header
+    });
+
+    // Row 1: trống (đệm)
+    ws.addRow([]);
+
+    // Row 2: tiêu đề
+    const title = `CHI TIẾT CHẤM CÔNG`;
+    ws.addRow([title]);
+    ws.mergeCells(2, 1, 2, 12); // merge A2:L2
+    const r2 = ws.getRow(2);
+    r2.height = 24;
+    r2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    r2.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
+
+    // Row 3: header
+    const header = [
+      'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
+      'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ', 'Sớm', 'Công', 'Tổng giờ', 'Ghi chú'
+    ];
+    ws.addRow(header);
+    const headerRow = ws.getRow(3);
+    headerRow.font = { name: 'Times New Roman', bold: true };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    headerRow.height = 20;
+
+    // Body
+    let stt = 1;
+    for (const r of rows) {
+      const u = userById.get(r.userId);
+      const empCode = (u as any)?.employeeCode || (u as any)?.code || '';
+      const fullName = u?.fullName || r.userId;
+      const deptName = (u as any)?.organizationName || '';
+
+      // dựng ngày & thứ
+      const dateObj = toLocalDate(currentUserTz, r.dateKey); // 00:00
+      const weekday = WEEKDAY_VI[(dateObj.getUTCDay())];    // 0..6
+
+      // giờ vào/ra (tùy field của bạn)
+      const gioVao = hhmm(resolveCheckIn(r));
+      const gioRa = hhmm(resolveCheckOut(r));
+
+      // trễ/sớm/phút làm việc (tuỳ field của bạn)
+      const lateMin = (r as any).lateMinutes ?? 0;
+      const earlyMin = (r as any).earlyMinutes ?? 0;
+      const workMins = (r as any).workedMinutes ?? (r as any).workingMinutes ?? 0;
+      const tongGio = round2(workMins / 60);
+      const editNote = (r as any).editNote ?? '';
+
+      const row = ws.addRow([
+        stt++,
+        empCode,
+        fullName,
+        deptName,
+        fmtDateVi(dateObj),
+        weekday,
+        gioVao,
+        gioRa,
+        lateMin,
+        earlyMin,
+        round2(workMins / 480), // “Công” (mặc định 8h=1 công); đổi mẫu nếu bạn dùng cách tính khác
+        tongGio,
+        editNote
+      ]);
+
+      row.font = { name: 'Times New Roman', size: 12 };
+      row.getCell(1).alignment = { horizontal: 'center' };           // STT
+      row.getCell(5).alignment = { horizontal: 'center' };           // Ngày
+      row.getCell(6).alignment = { horizontal: 'center' };           // Thứ
+      row.getCell(7).alignment = { horizontal: 'center' };           // Giờ vào
+      row.getCell(8).alignment = { horizontal: 'center' };           // Giờ ra
+      row.getCell(9).alignment = { horizontal: 'right' };            // Trễ
+      row.getCell(10).alignment = { horizontal: 'right' };           // Sớm
+      row.getCell(11).alignment = { horizontal: 'right' };           // Công
+      row.getCell(12).alignment = { horizontal: 'right' };           // Tổng giờ
+      row.getCell(13).alignment = { horizontal: 'right' };
+    }
+
+    // Viền bảng (mỏng) cho toàn bộ vùng có dữ liệu
+    const lastRow = ws.lastRow?.number ?? 3;
+    for (let r = 3; r <= lastRow; r++) {
+      for (let c = 1; c <= 13; c++) {
+        ws.getCell(r, c).border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
+      }
+    }
+
+    // Auto-fit cột + set width tối thiểu
+    const colMinWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
+    for (let c = 1; c <= 13; c++) {
+      const col = ws.getColumn(c);
+      let maxLen = (header[c - 1] || '').toString().length + 2;
+      col.eachCell({ includeEmpty: true }, cell => {
+        const v = cell.value ?? '';
+        const l = v.toString().length + 2;
+        if (l > maxLen) maxLen = l;
+      });
+      col.width = Math.max(colMinWidths[c - 1], Math.min(maxLen, 40));
+    }
+
+    // Xuất file
+    const safeOrg = orgName.replace(/\s+/g, '_');
+    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
+    const fileName = `ChiTietChamCong_${safeOrg}_${range}.xlsx`;
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
   };
 
 
@@ -780,6 +1259,15 @@ export default function DailyAttendancePage() {
           {isLoading ? 'Đang Tải...' : 'Xem Dữ Liệu'}
         </button>
         <button
+          onClick={handleExportOrgXlsx}
+          disabled={!selectedOrganizationId}
+          className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition ${!selectedOrganizationId ? 'bg-gray-300 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
+            }`}
+          title={!selectedOrganizationId ? 'Chọn Tổ chức trước khi export' : 'Export Excel theo Tổ chức (range-by-org)'}
+        >
+          Export Tổ chức (Excel)
+        </button>
+        {/* <button
           onClick={handleExportCsv}
           disabled={!selectedUserId || dailyRows.length === 0}
           className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
@@ -789,7 +1277,7 @@ export default function DailyAttendancePage() {
           title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export CSV')}
         >
           Export CSV
-        </button>
+        </button> */}
         <button
           onClick={handleExportXlsx}
           disabled={!selectedUserId || dailyRows.length === 0}
@@ -931,7 +1419,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
   };
 
   const isOvertime = (minutes: number | undefined) => {
-   return minutes !== undefined && minutes > 480;
+    return minutes !== undefined && minutes > 480;
   };
 
   const getStatusStyle = (status: string | undefined) => {
@@ -1089,12 +1577,12 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 // Thêm style có điều kiện và tooltip
                 style={{
                   // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
-                  fontWeight: isOvertime(row.workedMinutes)? 'bold' : 'normal',
-                  color: isOvertime(row.workedMinutes)? 'red' : 'inherit',
+                  fontWeight: isOvertime(row.workedMinutes) ? 'bold' : 'normal',
+                  color: isOvertime(row.workedMinutes) ? 'red' : 'inherit',
                 }}
 
                 // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
-                title={isOvertime(row.workedMinutes)? 'Có tăng ca' : ''}
+                title={isOvertime(row.workedMinutes) ? 'Có tăng ca' : ''}
               >
                 {formatMinutes(row.workedMinutes)}
               </td>
@@ -1317,4 +1805,32 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url);
 }
 
+
+const WEEKDAY_VI = ['CN', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'];
+
+function toLocalDate(tz: string, dateKey: string) {
+  // dateKey 'YYYY-MM-DD' -> Date ở TZ người dùng
+  const [y, m, d] = dateKey.split('-').map(Number);
+  // tạo lúc 00:00:00 local TZ
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function fmtDateVi(d: Date) {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function fmtTimeHHmm(s?: string) {
+  if (!s) return '';
+  const t = new Date(s);
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function round2(x: number) {
+  return Math.round(x * 100) / 100;
+}
 

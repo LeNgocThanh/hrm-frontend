@@ -328,7 +328,7 @@ export default function AttendanceLogsPage() {
         // 2) Dùng endpoint bulk theo user đã chọn
         if (!userId) throw new Error('Vui lòng chọn Nhân viên ở bộ lọc hoặc bật \"Sử dụng mã nhân viên\".');
         const bad = previewRows.filter((r) => !r.userId || !r.timestamp);
-        if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);
+        if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);        
         const payload = previewRows.map(({ userId, timestamp }) => ({ userId, timestamp }));
         const res = await fetch(`${API_BASE}/attendance/logs/bulk`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -537,7 +537,7 @@ export default function AttendanceLogsPage() {
       {/* Import Modal */}
       {showImport && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 space-y-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 space-y-4 max-h-screen overflow-y-auto">
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold">Import Logs {resolveUser(userId, userMap)}</h2>
               <button onClick={() => { setShowImport(false); resetImport(); }} className="p-2 rounded-lg hover:bg-gray-100">✕</button>
@@ -581,21 +581,21 @@ export default function AttendanceLogsPage() {
 
               {!useUserCodeImport && !!previewRows.length && (
                 <div className="border rounded-xl overflow-hidden">
-                  <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 10)</div>
+                  <div className="p-3 text-sm text-gray-600">Xem trước {previewRows.length} dòng (hiện tối đa 6)</div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr className="text-left">
                           <th className="px-3 py-2">#</th>
-                          <th className="px-3 py-2">userId</th>
+                          <th className="px-3 py-2">userName</th>
                           <th className="px-3 py-2" colSpan={2}>timestamp</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {previewRows.slice(0, 10).map((r, idx) => (
+                        {previewRows.slice(0, 6).map((r, idx) => (
                           <tr key={`prev-${idx}`} className="odd:bg-white even:bg-gray-50">
                             <td className="px-3 py-2">{idx + 1}</td>
-                            <td className="px-3 py-2">{String(r.userId || "")}</td>
+                            <td className="px-3 py-2">{String(resolveUser(r.userId, userMap) || "")}</td>
                             <td className="px-3 py-2" colSpan={2}>{r.timestamp ? formatLocal(r.timestamp) : ""}</td>
                           </tr>
                         ))}
@@ -762,8 +762,7 @@ async function buildPayloadFromUserCode(
   if (!temp.length) return [];
 
   // 2) prefetch userId theo mã
-  const codeToUserId = await prefetchAssignmentsByCode(temp.map(r => r.userCode));
-  console.log('codeToUserId', codeToUserId)
+  const codeToUserId = await prefetchAssignmentsByCode(temp.map(r => r.userCode)); 
 
   // 3) build payload, loại bỏ dòng không map được
   const seen = new Set<string>();

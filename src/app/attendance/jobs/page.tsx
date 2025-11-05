@@ -244,7 +244,7 @@ const AttendanceJobsRunner: React.FC = () => {
 
   // Mock SWR for Organizations
   const { data: orgsData, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
-    `${API_BASE}/organizations`,
+    `${API_BASE}/organizations/under`,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -374,7 +374,7 @@ const AttendanceJobsRunner: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
       <h1 className="text-3xl font-extrabold text-gray-800 mb-8 border-b-4 border-blue-500 pb-2">
-        Công Cụ Chạy Jobs Attendance Thủ Công
+        Công Cụ Chạy Jobs Tính lương Thủ Công 
       </h1>
 
       {/* 1. User Selection Section */}
@@ -397,10 +397,8 @@ const AttendanceJobsRunner: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-blue-100 space-y-4">
           <h2 className="text-2xl font-bold flex items-center text-green-700 border-b pb-2">
             <Calendar className="w-6 h-6 mr-2" />
-            Job: Tổng Hợp Summary (Tháng)
-          </h2>
-
-          <p className="text-gray-600">Sử dụng: `runMonthlySummary`</p>
+            Job: Tổng Hợp từ chấm công ngày thành tháng
+          </h2>        
 
           {/* Time Picker */}
           <div className="space-y-2">
@@ -459,10 +457,10 @@ const AttendanceJobsRunner: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-blue-100 space-y-4">
           <h2 className="text-2xl font-bold flex items-center text-orange-700 border-b pb-2">
             <Calendar className="w-6 h-6 mr-2" />
-            Job: Logs Over Night To Daily (Ngày)
+            Job: Chạy dữ liệu chấm công để tính ngày công 
           </h2>
 
-          <p className="text-gray-600">Sử dụng: `runLogsOverNightToDailyManual`</p>
+       
 
           {/* Time Range Pickers */}
           <div className="space-y-3">
