@@ -117,6 +117,7 @@ interface DailyRow {
   editNote?: string;       // NEW (ở cấp ngày)
   // TRƯỜNG MỚI ĐƯỢC THÊM VÀO SAU KHI TỔNG HỢP TIME ENTRIES
   timeEntrySummary?: TimeEntrySummary;
+  workedCheckIn?: number;
   [key: string]: any;
 }
 
@@ -1433,7 +1434,7 @@ export default function DailyAttendancePage() {
           Export Excel
         </button>
 
-        {/* <button
+        <button
           onClick={handleExportPdf}
           disabled={!selectedUserId || dailyRows.length === 0}
           className={`px-4 py-2 text-white font-semibold rounded-lg shadow-md transition duration-150 ${(!selectedUserId || dailyRows.length === 0)
@@ -1443,7 +1444,7 @@ export default function DailyAttendancePage() {
           title={!selectedUserId ? 'Chọn Nhân viên trước khi export' : (dailyRows.length === 0 ? 'Không có dữ liệu để export' : 'Export PDF')}
         >
           Export PDF
-        </button> */}
+        </button>
 
       </div>
 
@@ -1599,7 +1600,11 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
   };
 
   const isOvertime = (minutes: number | undefined) => {
-    return minutes !== undefined && minutes > 480;
+    return minutes !== undefined && minutes > 540;
+  };
+
+  const isUnderime = (minutes: number | undefined) => {
+    return minutes !== undefined && minutes < 60;
   };
 
   const getStatusStyle = (status: string | undefined) => {
@@ -1683,10 +1688,13 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
               Quá ngày (IN/OUT)
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Ca thực tế
+              Ca thực tế (lưu trong dữ liệu)
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tổng Giờ Làm
+              Tổng Giờ Làm (theo ca)
+            </th>
+            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Tổng Giờ CheckIn
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Đi Trễ/Về Sớm
@@ -1757,8 +1765,8 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 // Thêm style có điều kiện và tooltip
                 style={{
                   // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
-                  fontWeight: isOvertime(row.workedMinutes) ? 'bold' : 'normal',
-                  color: isOvertime(row.workedMinutes) ? 'red' : 'inherit',
+                  fontWeight: isOvertime(row.workedMinutes) ? 'bold' : isUnderime(row.workedMinutes) ? 'italic' : 'normal',
+                  color: isOvertime(row.workedMinutes) ? 'red' : isUnderime(row.workedMinutes) ? 'blue' :'inherit',
                 }}
 
                 // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
@@ -1766,6 +1774,23 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
               >
                 {formatMinutes(row.workedMinutes)}
               </td>
+              <td
+                // Các class hiện có để giữ layout
+                className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium"
+
+                // Thêm style có điều kiện và tooltip
+                style={{
+                  // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
+                  fontWeight: isOvertime(row.workedCheckIn) ? 'bold' : isUnderime(row.workedCheckIn) ? 'italic' : 'normal',
+                  color: isOvertime(row.workedCheckIn) ? 'red' : isUnderime(row.workedCheckIn) ? 'blue' :'inherit',
+                }}
+
+                // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
+                title={isOvertime(row.workedCheckIn) ? 'Có tăng ca' : ''}
+              >
+                {formatMinutes(row.workedCheckIn)}
+              </td> 
+
               {/* Đi Trễ/Về Sớm */}
               <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-red-500 font-medium">
                 {(row.lateMinutes || 0) > 0 || (row.earlyLeaveMinutes || 0) > 0
@@ -1927,6 +1952,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
 }
 
 async function exportToPdf(rows: Array<Record<string, any>>, filename: string) {
+  const jsPDF = (await import('jspdf')).default;
+  const autoTable = (await import('jspdf-autotable')).default;
   if (!rows?.length) return;
 
   const columns = [
@@ -1935,23 +1962,29 @@ async function exportToPdf(rows: Array<Record<string, any>>, filename: string) {
     'Status', 'ManualEdited', 'EditNote'
   ];
 
+  const header = [
+    'Ngày', 'ShiftType', 'Vào ca sáng', 'Ra ca sáng', 'Vào ca chiều', 'Ra ca chiều',
+    'Thời gian làm việc', 'Đi muộn', 'Về sớm',
+    'Tình trạng', 'Đã chỉnh tay', 'Ghi chú'
+  ];
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
   // Nạp font Unicode (quan trọng để hiển thị tiếng Việt)
   await loadFontAndSet(doc);
 
-  const head = [columns];
+  const head = [header];
   const body = rows.map(r => columns.map(c => r[c] ?? ''));
 
   doc.setFontSize(10);
   doc.text('Bảng công (xuất từ hệ thống)', 40, 32);
 
-  (doc as any).autoTable({
+  autoTable(doc, ({
     head,
     body,
     startY: 44,
     styles: { font: 'NotoSans', fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
-    headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'normal' },
+    headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'normal', font: 'NotoSans' },
     columnStyles: {
       EditNote: { cellWidth: 220 }, // để ghi chú không bị vỡ dòng quá nhiều
     },
@@ -1961,7 +1994,7 @@ async function exportToPdf(rows: Array<Record<string, any>>, filename: string) {
     },
     margin: { top: 36, right: 24, bottom: 24, left: 24 },
     tableWidth: 'auto',
-  });
+  }));
 
   doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
 }

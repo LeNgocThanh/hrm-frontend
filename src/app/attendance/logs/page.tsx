@@ -85,7 +85,7 @@ export default function AttendanceLogsPage() {
     const XLSX = await import('xlsx');
     const rows = [
       { date: '2025-10-01', time1: '08:00', time2: '09:00', time3: '10:00', time4: '12:00', time5: '13:30', time6: '17:00', userCode: '' },
-      { date: '2025-10-01', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '', userCode: '' },
+      { date: '2025-10-02', time1: '08:05', time2: '', time3: '', time4: '', time5: '', time6: '', userCode: '' },
     ];
     const ws = XLSX.utils.json_to_sheet(rows, { header: ['date', 'time1', 'time2', 'time3', 'time4', 'time5', 'time6', 'userCode'] });
     const wb = XLSX.utils.book_new();
@@ -109,10 +109,10 @@ export default function AttendanceLogsPage() {
     const headerRow = new TableRow({
       children: [
         new TableCell({ width: { size: 8, type: WidthType.PERCENTAGE }, children: [new Paragraph({ text: '#', alignment: AlignmentType.CENTER })] }),
-        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('User')] }),
-        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('UserCode')] }),
-        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('Date')] }),
-        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('Timestamps (HH:mm)')] }),
+        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('Họ tên')] }),
+        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('Mã nhân viên')] }),
+        new TableCell({ width: { size: 18, type: WidthType.PERCENTAGE }, children: [new Paragraph('Ngày công')] }),
+        new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, children: [new Paragraph('Giờ công (HH:mm)')] }),
       ],
     });
 
@@ -127,7 +127,7 @@ export default function AttendanceLogsPage() {
     }));
 
     const table = new Table({ rows: [headerRow, ...rows] });
-    const doc = new Document({ sections: [{ properties: {}, children: [new Paragraph({ text: 'Attendance Logs', heading: 'Heading1' }), table] }] });
+    const doc = new Document({ sections: [{ properties: {}, children: [new Paragraph({ text: 'Dữ liệu chấm công', heading: 'Heading1' }), table] }] });
     const blob = await Packer.toBlob(doc);
     triggerDownload(blob, `logs_${new Date().toISOString().slice(0, 10)}.docx`);
   }
@@ -135,11 +135,24 @@ export default function AttendanceLogsPage() {
   async function exportPdf() {
     const jsPDF = (await import('jspdf')).default;
     const autoTable = (await import('jspdf-autotable')).default;
+    const { default: NotoSans } = await import('@/../public/fonts/NotoSans-Regular.js');
+
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    doc.setFontSize(14); doc.text('Attendance Logs', 40, 40);
+
+    // ✅ Nạp font Unicode
+    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSans);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    doc.setFontSize(14);
+
+    doc.text('Dữ liệu chấm công', 40, 40);
     const body = groupRows.map((r, i) => [String(i + 1), r.userName, r.userCode || '', r.dateKey, r.times.join(' - ')]);
     // @ts-ignore
-    autoTable(doc, { startY: 60, head: [['#', 'User', 'UserCode', 'Date', 'Timestamps (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4 } });
+    autoTable(doc, {
+      startY: 60, head: [['#', 'Họ tên', 'Mã nhân viên', 'Ngày công', 'Giờ công (HH:mm)']], body, styles: { fontSize: 9, cellPadding: 4, font: 'NotoSans' }, headStyles: { font: 'NotoSans', fontStyle: 'normal' },
+      bodyStyles: { font: 'NotoSans', fontStyle: 'normal' },
+    });
     doc.save(`logs_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
@@ -328,7 +341,7 @@ export default function AttendanceLogsPage() {
         // 2) Dùng endpoint bulk theo user đã chọn
         if (!userId) throw new Error('Vui lòng chọn Nhân viên ở bộ lọc hoặc bật \"Sử dụng mã nhân viên\".');
         const bad = previewRows.filter((r) => !r.userId || !r.timestamp);
-        if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);        
+        if (bad.length) throw new Error(`Thiếu trường bắt buộc ở ${bad.length} dòng (userId/timestamp)`);
         const payload = previewRows.map(({ userId, timestamp }) => ({ userId, timestamp }));
         const res = await fetch(`${API_BASE}/attendance/logs/bulk`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -496,10 +509,10 @@ export default function AttendanceLogsPage() {
             <thead className="bg-gray-50">
               <tr className="text-left">
                 <th className="px-4 py-3">#</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">UserCode</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Timestamps (HH:mm)</th>
+                <th className="px-4 py-3">Họ tên</th>
+                <th className="px-4 py-3">Mã nhân viên</th>
+                <th className="px-4 py-3">Ngày công</th>
+                <th className="px-4 py-3">Giờ công (HH:mm)</th>
               </tr>
             </thead>
             <tbody>
@@ -587,8 +600,8 @@ export default function AttendanceLogsPage() {
                       <thead className="bg-gray-50">
                         <tr className="text-left">
                           <th className="px-3 py-2">#</th>
-                          <th className="px-3 py-2">userName</th>
-                          <th className="px-3 py-2" colSpan={2}>timestamp</th>
+                          <th className="px-3 py-2">Họ tên</th>
+                          <th className="px-3 py-2" colSpan={2}>Chấm công</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -762,7 +775,7 @@ async function buildPayloadFromUserCode(
   if (!temp.length) return [];
 
   // 2) prefetch userId theo mã
-  const codeToUserId = await prefetchAssignmentsByCode(temp.map(r => r.userCode)); 
+  const codeToUserId = await prefetchAssignmentsByCode(temp.map(r => r.userCode));
 
   // 3) build payload, loại bỏ dòng không map được
   const seen = new Set<string>();
@@ -790,7 +803,7 @@ async function prefetchAssignmentsByCode(codes: string[]) {
       });
       if (!resp.ok) return;
       try {
-        const data = await resp.json();        
+        const data = await resp.json();
         const uid =
           String(data.userId?._id) || "";
         if (uid) codeToUserId.set(code, uid);
