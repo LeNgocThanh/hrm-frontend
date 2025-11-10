@@ -1609,6 +1609,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
       case AT_STATUS.ABSENT: return 'bg-red-100 text-red-800 border-red-300';
       case AT_STATUS.MANUAL_EDIT: return 'bg-indigo-100 text-indigo-800 border-indigo-300';
       case AT_STATUS.WEEKEND: return 'bg-gray-100 text-gray-500 border-gray-300';
+      case AT_STATUS.OVERTIME: return 'bg-red-100 text-red-800 border-red-300';
       default: return 'bg-white text-gray-600 border-gray-300';
     }
   };
@@ -1693,7 +1694,10 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Đi Trễ/Về Sớm
-            </th>           
+            </th>
+            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              Trạng Thái
+            </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               Hành động
             </th>

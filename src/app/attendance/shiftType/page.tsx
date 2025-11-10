@@ -400,8 +400,8 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
             </div>
             <div className="lg:col-span-5 flex flex-wrap gap-2 bg-white p-3 rounded-xl border justify-end">
               <span className="text-sm text-gray-600 mr-1">Thêm nhanh phiên:</span>
-              <button type="button" onClick={() => addSessionTemplate('AM')} className="btn-chip">AM 09:00–12:00</button>
-              <button type="button" onClick={() => addSessionTemplate('PM')} className="btn-chip">PM 13:00–17:00</button>
+              <button type="button" onClick={() => addSessionTemplate('AM')} className="btn-chip">AM 06:30–14:30</button>
+              <button type="button" onClick={() => addSessionTemplate('PM')} className="btn-chip">PM 14:00–22:00</button>
               <button type="button" onClick={() => addSessionTemplate('OV')} className="btn-chip">OV 20:00–06:00</button>
             </div>
           </div>

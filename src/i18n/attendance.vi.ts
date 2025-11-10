@@ -9,6 +9,7 @@ export const AT_STATUS: Record<string, string> = {
     HALF_AM: 'Nửa ngày sáng',
     HALF_PM: 'Nửa ngày chiều',
     PARTIAL: 'Làm một phần',
+    OVERTIME: 'Tăng ca',
 };
 
 export const STATUS_OPTIONS_AT = (Object.keys(AT_STATUS) as string[]).map(v => ({ value: v, label: AT_STATUS[v] }));
