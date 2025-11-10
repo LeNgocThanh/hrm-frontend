@@ -219,7 +219,7 @@ const userPolicyApi = {
     // API PUT /user-policy-bindings/:id
     update: async (id: string, dto: CreatePolicyBindingDto): Promise<UserPolicyBinding> => {
         const response = await fetch(`${USER_POLICY_BASE_URL}/${id}`, {
-            method: 'PUT',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dto),
         });

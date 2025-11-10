@@ -42,6 +42,7 @@ interface ShiftType {
   weeklyRules: WeeklyRules;
   isActive?: boolean; // Tạm thêm để hiển thị
   isCheckTwoTimes?: boolean;
+  isMixSession?:boolean;
   [key: string]: any;
 }
 
@@ -163,8 +164,9 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
   const defaultShift: ShiftType = {
     code: '',
     name: '',
-    isCheckTwoTimes: false,
+    isCheckTwoTimes: true,
     weeklyRules: initialWeeklyRules,
+    isMixSession: false,
   };
 
   const [form, setForm] = useState<ShiftType>(initialData || defaultShift);
@@ -216,7 +218,7 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
   // Add session quick templates
   const addSessionTemplate = (template: 'AM' | 'PM' | 'OV') => {
     const presets: Record<'AM' | 'PM' | 'OV', ShiftSession> = {
-      AM: { code: 'AM', start: '06:00', end: '14:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
+      AM: { code: 'AM', start: '06:30', end: '14:30', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
       PM: { code: 'PM', start: '14:00', end: '22:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
       OV: { code: 'OV', start: '22:00', end: '06:00', required: true, graceInMins: 120, graceOutMins: 120, breakMinutes: 0, maxCheckInEarlyMins: 240, maxCheckOutLateMins: 240 },
     };
@@ -380,6 +382,11 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
               <label className="text-sm font-medium text-gray-700 mr-2">Chấm công 2 lần trong ngày:</label>
               <input type="checkbox" name="isCheckTwoTimes" checked={!!form.isCheckTwoTimes} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
             </div>
+            <div className="flex items-center">
+              <label className="text-sm font-medium text-gray-700 mr-2">Ca hỗn hợp:</label>
+              <input type="checkbox" name="isMixSession" checked={!!form.isMixSession} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+            </div>
+
           </div>
 
           {/* Toolbar nhanh */}
