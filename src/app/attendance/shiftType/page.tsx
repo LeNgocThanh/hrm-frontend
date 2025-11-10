@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, X, Clock, AlertTriangle, Save, Calendar, Globe, Layers, Copy, ChevronDown, ChevronUp, ClipboardPaste, Sparkles, ArrowRight, CheckSquare, Scissors } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, AlertTriangle, Save, Layers, Copy, ChevronDown, ChevronUp, ClipboardPaste, Sparkles, ArrowRight, CheckSquare } from 'lucide-react';
 
 // --- Hằng số và Cấu hình ---
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -42,7 +42,7 @@ interface ShiftType {
   weeklyRules: WeeklyRules;
   isActive?: boolean; // Tạm thêm để hiển thị
   isCheckTwoTimes?: boolean;
-  isMixSession?:boolean;
+  isMixSession?: boolean;
   [key: string]: any;
 }
 
@@ -52,8 +52,7 @@ async function api(path: string, opts: any = {}) {
   const url = new URL(path.replace(/^\//, ''), API_BASE + '/');
   if (query) {
     Object.entries(query).forEach(([k, v]) => {
-      if (v != null && v !== '')
-        url.searchParams.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+      if (v != null && v !== '') url.searchParams.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
     });
   }
   const res = await fetch(url.toString(), {
@@ -182,21 +181,18 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
     else setForm(defaultShift);
   }, [initialData]);
 
-  // Keyboard shortcuts for power users
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        // Ctrl/Cmd + C : copy current day
         e.preventDefault();
         handleCopyDay(activeDay);
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        // Ctrl/Cmd + V : paste to current day
         e.preventDefault();
         handlePasteToDay(activeDay);
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        // Ctrl/Cmd + D : duplicate first session in day
         e.preventDefault();
         handleDuplicateFirstSession(activeDay);
       }
@@ -238,7 +234,12 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
       if (i === index) {
         return {
           ...session,
-          [field]: field === 'required' ? value : typeof value === 'string' && ['graceInMins', 'graceOutMins', 'breakMinutes', 'maxCheckInEarlyMins', 'maxCheckOutLateMins'].includes(field as string) ? parseInt(value, 10) : value,
+          [field]:
+            field === 'required'
+              ? value
+              : typeof value === 'string' && ['graceInMins', 'graceOutMins', 'breakMinutes', 'maxCheckInEarlyMins', 'maxCheckOutLateMins'].includes(field as string)
+              ? parseInt(value, 10)
+              : value,
         } as ShiftSession;
       }
       return session;
@@ -357,9 +358,7 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
         {/* Header */}
         <div className="p-6 border-b sticky top-0 bg-white z-10 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {isEdit ? 'Chỉnh Sửa Loại Ca Làm' : 'Tạo Loại Ca Làm Mới'}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900">{isEdit ? 'Chỉnh Sửa Loại Ca Làm' : 'Tạo Loại Ca Làm Mới'}</h2>
             <p className="text-sm text-gray-500">Phím tắt: Ctrl/Cmd+C (copy ngày), Ctrl/Cmd+V (dán), Ctrl/Cmd+D (nhân bản phiên đầu)</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition">
@@ -386,7 +385,6 @@ const ShiftTypeForm = ({ initialData, onClose, onSave }: { initialData?: ShiftTy
               <label className="text-sm font-medium text-gray-700 mr-2">Ca hỗn hợp:</label>
               <input type="checkbox" name="isMixSession" checked={!!form.isMixSession} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
             </div>
-
           </div>
 
           {/* Toolbar nhanh */}
@@ -482,9 +480,7 @@ const SessionCard = ({ session, index, dayKey, onRemove, onChange, onMove, onDup
           <label className="block text-sm font-medium text-gray-700 mb-1">Mã Phiên</label>
           <select value={session.code} onChange={(e) => onChange(dayKey, index, 'code', e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
             {SESSION_CODES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </div>
@@ -522,6 +518,40 @@ const ShiftTypePage = () => {
   const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<ShiftType | null>(null);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // --- NEW: bộ lọc & phân trang (client-side) ---
+  const [searchCode, setSearchCode] = useState('');
+  const [searchName, setSearchName] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // chuẩn hóa chuỗi tìm kiếm đơn giản
+  const norm = (s: string) => (s || '').toLowerCase().trim();
+
+  const filtered = useMemo(() => {
+    const code = norm(searchCode);
+    const name = norm(searchName);
+    return (shiftTypes || []).filter((st) => {
+      const okCode = code ? norm(st.code).includes(code) : true;
+      const okName = name ? norm(st.name).includes(name) : true;
+      return okCode && okName;
+    });
+  }, [shiftTypes, searchCode, searchName]);
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    // reset về trang 1 khi đổi filter hoặc pageSize
+    setPage(1);
+  }, [searchCode, searchName, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const start = (page - 1) * pageSize;
+  const displayed = useMemo(() => filtered.slice(start, start + pageSize), [filtered, start, pageSize]);
 
   const openCreateModal = () => {
     setEditingShiftType(null);
@@ -561,11 +591,54 @@ const ShiftTypePage = () => {
     }
   }, [actionMessage]);
 
+  // helper render paginations
+  const Pagination = () => (
+    <div className="flex flex-col sm:flex-row items-center justify-between p-3 gap-3">
+      <div className="text-sm text-gray-600">
+        Hiển thị <b>{displayed.length}</b> / <b>{total}</b> bản ghi · Trang <b>{page}</b>/<b>{totalPages}</b>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="px-3 py-1.5 rounded-lg border bg-white disabled:opacity-50"
+        >
+          Trước
+        </button>
+        {Array.from({ length: totalPages }).slice(0, 7).map((_, i) => {
+          const n = i + 1;
+          return (
+            <button key={n} onClick={() => setPage(n)} className={`px-3 py-1.5 rounded-lg border ${n === page ? 'bg-blue-600 text-white border-blue-600' : 'bg-white'}`}>
+              {n}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          className="px-3 py-1.5 rounded-lg border bg-white disabled:opacity-50"
+        >
+          Sau
+        </button>
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(parseInt(e.target.value, 10))}
+          className="ml-2 px-2 py-1.5 border rounded-lg bg-white text-sm"
+          title="Số dòng mỗi trang"
+        >
+          {[5, 10, 20, 50, 100].map((n) => (
+            <option key={n} value={n}>{n}/trang</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-4 sm:p-8 bg-gray-50 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-gray-900 border-b pb-3 flex items-center gap-3">
-          <Layers size={28} className="text-blue-600" /> Quản Lý Loại Ca Làm (Shift Types)
+          <Layers size={28} className="text-blue-600" /> Quản Lý Loại Ca Làm
         </h1>
 
         {actionMessage && (
@@ -574,10 +647,32 @@ const ShiftTypePage = () => {
           </div>
         )}
 
-        <div className="flex justify-end mb-4">
-          <button onClick={openCreateModal} className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition">
-            <Plus size={20} className="mr-2" /> Tạo Loại Ca Mới
-          </button>
+        {/* Bộ lọc */}
+        <div className="bg-white border rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lọc theo Code</label>
+            <input
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              placeholder="VD: AM_PM"
+              className="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lọc theo Tên</label>
+            <input
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              placeholder="VD: Ca văn phòng"
+              className="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { setSearchCode(''); setSearchName(''); }} className="px-4 py-2 rounded-lg border bg-white">Xóa lọc</button>
+            <button onClick={openCreateModal} className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition">
+              <Plus size={20} className="mr-2" /> Tạo Loại Ca Mới
+            </button>
+          </div>
         </div>
 
         {isLoading && <div className="p-8 text-center text-gray-600 bg-white rounded-xl shadow">Đang tải dữ liệu...</div>}
@@ -601,8 +696,8 @@ const ShiftTypePage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {shiftTypes.length > 0 ? (
-                    shiftTypes.map((shift) => (
+                  {displayed.length > 0 ? (
+                    displayed.map((shift) => (
                       <tr key={shift._id} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shift.code}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{shift.name}</td>
@@ -640,12 +735,14 @@ const ShiftTypePage = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Không có Loại Ca Làm nào được tạo.</td>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Không có Loại Ca Làm nào phù hợp bộ lọc.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            {/* Pagination footer */}
+            <Pagination />
           </div>
         )}
       </div>
@@ -712,11 +809,6 @@ function normalizeWeeklyRules(rules: WeeklyRules): WeeklyRules {
   return normalized;
 }
 
-function getDayNameByKey(key: string): string {
-  const day = DAYS_OF_WEEK.find((d) => d.key === key);
-  return day ? day.name : 'Không xác định';
-}
-
 // --- tiny utility classes ---
 declare global {
   interface HTMLElementTagNameMap {
@@ -729,8 +821,4 @@ const btnBase = 'inline-flex items-center px-3 py-2 rounded-lg text-sm font-medi
 const btnGhost = `${btnBase} bg-gray-100 hover:bg-gray-200 text-gray-800`;
 const btnChip = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 hover:bg-gray-200';
 
-// Extend to className string via global CSS - here we keep utility names and reuse them
-// If using classnames lib, we could compose; but plain strings are fine.
-
-// Attach to global (optional): in TSX we can't define CSS, so we rely on these helper class names in JSX via className props
-// For readability we alias in JSX with className="btn-ghost" or "btn-chip" using tailwind @apply in a CSS file if available.
+// Lưu ý: các class "btn-ghost" và "btn-chip" giả định có @apply trong CSS toàn cục.

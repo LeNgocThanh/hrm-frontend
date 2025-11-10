@@ -889,14 +889,7 @@ export default function DailyAttendancePage() {
     // refresh bảng
     await fetchAttendanceDaily(selectedUserId, filterFrom, filterTo);
   };
-
-  const handleExportXlsxOld = () => {
-    if (!selectedUserId || dailyRows.length === 0) return;
-    const data = buildExportRows(dailyRows, currentUserTz);
-    const userName = (selectedUser?.fullName || 'User').replace(/\s+/g, '_');
-    const range = `${filterFrom.replace(/-/g, '')}-${filterTo.replace(/-/g, '')}`;
-    exportToXlsx(data, `Attendance_${userName}_${range}.xlsx`);
-  };
+  
 
   const handleExportXlsx = async () => {
     if (!selectedUserId || dailyRows.length === 0) return;
@@ -930,7 +923,7 @@ export default function DailyAttendancePage() {
     const header = [
       'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
       'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ (phút)',
-      'Sớm (phút)', 'Công', 'Tổng giờ', 'Ghi chú'
+      'Sớm (phút)', 'Công', 'Tổng giờ', 'Ghi chú', 'Trạng thái'
     ];
     ws.addRow(header);
     const headerRow = ws.getRow(3);
@@ -955,6 +948,7 @@ export default function DailyAttendancePage() {
       const tongGio = round2(worked / 60);
       const cong = round2(worked / 480); // 8h = 1 công
       const editNote = r.editNote ?? '';
+      const status = r.status ?? '';
 
       ws.addRow([
         stt++,
@@ -969,14 +963,15 @@ export default function DailyAttendancePage() {
         early,
         cong,
         tongGio,
-        editNote
+        editNote,
+        status
       ]);
     }
 
     // === Định dạng bảng ===
     const lastRow = ws.lastRow?.number ?? 3;
     for (let r = 3; r <= lastRow; r++) {
-      for (let c = 1; c <= 13; c++) {
+      for (let c = 1; c <= 14; c++) {
         const cell = ws.getCell(r, c);
         cell.border = {
           top: { style: 'thin' },
@@ -1000,6 +995,7 @@ export default function DailyAttendancePage() {
     ws.getColumn(11).alignment = { horizontal: 'right' }; // Công
     ws.getColumn(12).alignment = { horizontal: 'right' }; // Tổng giờ
     ws.getColumn(13).alignment = { horizontal: 'right' };
+    ws.getColumn(14).alignment = { horizontal: 'right' };
 
     const lateMinutesArr = dailyRows.map(r => r.lateMinutes ?? 0);
     const earlyMinutesArr = dailyRows.map(r => r.earlyLeaveMinutes ?? 0);
@@ -1054,8 +1050,8 @@ export default function DailyAttendancePage() {
     ws.getCell(lastIdx, 12).alignment = { horizontal: 'right' }; // Tổng giờ
 
     // Auto-fit width
-    const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
-    for (let c = 1; c <= 13; c++) {
+    const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24,24];
+    for (let c = 1; c <= 14; c++) {
       const col = ws.getColumn(c);
       let maxLen = (header[c - 1] || '').length + 2;
       col.eachCell({ includeEmpty: true }, cell => {
@@ -1135,7 +1131,7 @@ export default function DailyAttendancePage() {
     // Row 3: header
     const header = [
       'STT', 'Mã nhân viên', 'Tên nhân viên', 'Phòng Ban',
-      'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ', 'Sớm', 'Công', 'Tổng giờ', 'Ghi chú'
+      'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Trễ', 'Sớm', 'Công', 'Tổng giờ', 'Ghi chú', 'Trạng thái'
     ];
     ws.addRow(header);
     const headerRow = ws.getRow(3);
@@ -1229,6 +1225,7 @@ export default function DailyAttendancePage() {
       const empCode = (u as any)?.employeeCode || (u as any)?.code || '';
       const fullName = u?.fullName || r.userId;
       const deptName = (u as any)?.organizationName || '';
+      const userCode = (u as any)?.userCode || '';
 
       const dateObj = toLocalDate(currentUserTz, r.dateKey);
       const weekday = WEEKDAY_VI[(dateObj.getUTCDay())];
@@ -1241,10 +1238,11 @@ export default function DailyAttendancePage() {
       const workMins = (r as any).workedMinutes ?? (r as any).workingMinutes ?? (r as any).workMinutes ?? 0;
       const tongGio = round2(workMins / 60);
       const editNote = (r as any).editNote ?? '';
+      const status = (r as any).status ?? '';
 
       const row = ws.addRow([
         stt++,
-        empCode,
+        userCode,
         fullName,
         deptName,
         fmtDateVi(dateObj),
@@ -1255,7 +1253,8 @@ export default function DailyAttendancePage() {
         earlyMin,
         round2(workMins / 480),
         tongGio,
-        editNote
+        editNote,
+        status
       ]);
 
       row.font = { name: 'Times New Roman', size: 12 };
@@ -1268,7 +1267,8 @@ export default function DailyAttendancePage() {
       row.getCell(10).alignment = { horizontal: 'right' }; // Sớm
       row.getCell(11).alignment = { horizontal: 'right' }; // Công
       row.getCell(12).alignment = { horizontal: 'right' }; // Tổng giờ
-      row.getCell(13).alignment = { horizontal: 'left' }; // Ghi chú
+      row.getCell(13).alignment = { horizontal: 'right' }; // Ghi chú
+      row.getCell(14).alignment = { horizontal: 'left' }; // trạng thái
 
       // tích lũy theo user để tổng kết
       accLateMin += lateMin;
@@ -1285,7 +1285,7 @@ export default function DailyAttendancePage() {
     // Viền bảng (mỏng) cho toàn bộ vùng có dữ liệu
     const lastRow = ws.lastRow?.number ?? 3;
     for (let r = 3; r <= lastRow; r++) {
-      for (let c = 1; c <= 13; c++) {
+      for (let c = 1; c <= 14; c++) {
         ws.getCell(r, c).border = {
           top: { style: 'thin' }, left: { style: 'thin' },
           bottom: { style: 'thin' }, right: { style: 'thin' }
@@ -1294,8 +1294,8 @@ export default function DailyAttendancePage() {
     }
 
     // Auto-fit cột + set width tối thiểu
-    const colMinWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24];
-    for (let c = 1; c <= 13; c++) {
+    const colMinWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24,24];
+    for (let c = 1; c <= 14; c++) {
       const col = ws.getColumn(c);
       let maxLen = (header[c - 1] || '').toString().length + 2;
       col.eachCell({ includeEmpty: true }, cell => {
@@ -1583,12 +1583,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
       </div>
     );
   }
-
-  const getDayOfWeek = (dateKey: string): number => {
-    const [year, month, day] = dateKey.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.getDay(); // 0 (Chủ Nhật) đến 6 (Thứ Bảy)
-  };
+  
 
   const formatMinutes = (minutes: number | undefined) => {
     if (minutes === undefined || minutes === 0) return '-';
@@ -1698,10 +1693,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
             </th>
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Đi Trễ/Về Sớm
-            </th>
-            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-              Trạng Thái
-            </th>
+            </th>           
             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               Hành động
             </th>
