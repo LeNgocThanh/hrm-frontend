@@ -1238,8 +1238,8 @@ export default function DailyAttendancePage() {
       const workMins = (r as any).workedMinutes ?? (r as any).workingMinutes ?? (r as any).workMinutes ?? 0;
       const tongGio = round2(workMins / 60);
       const editNote = (r as any).editNote ?? '';
-      const status = (r as any).status ?? '';
-
+      const status = AT_STATUS[(r as any).status] ?? '';
+      
       const row = ws.addRow([
         stt++,
         userCode,
