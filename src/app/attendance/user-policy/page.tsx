@@ -197,7 +197,7 @@ const UserShiftPolicyPage: React.FC = () => {
   }, [allUsers, selectedOrganizationId, nameFilter])
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  useEffect(() => { if (users && users.length > 0 && !selectedUserId) setSelectedUserId(users[0]._id) }, [users])
+ // useEffect(() => { if (users && users.length > 0 && !selectedUserId) setSelectedUserId(users[0]._id) }, [users])
 
   const [bindings, setBindings] = useState<UserPolicyBinding[]>([])
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([])
@@ -278,8 +278,7 @@ const UserShiftPolicyPage: React.FC = () => {
               <select value={selectedUserId || ''} onChange={(e)=> setSelectedUserId(e.target.value || null)} className="w-full p-2 border rounded-lg pr-8">
                 {!selectedUserId && <option value="">-- Chọn Người Dùng --</option>}
                 {filteredUsers.map(u => <option key={u._id} value={u._id}>{u.fullName} ({u._id})</option>)}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500"><ChevronDown className="w-4 h-4"/></div>
+              </select>             
             </div>
           </div>
         </div>
