@@ -28,6 +28,7 @@ export interface UserWithOrganization {
   organizationId: string;
   organizationName: string; 
   userCode?: string;
+  organizationPath?: string;
 }
 
 export interface CreateUserData {

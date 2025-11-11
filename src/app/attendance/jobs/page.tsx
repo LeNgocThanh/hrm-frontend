@@ -10,6 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 interface OrganizationType {
   _id: string;
   name: string;
+  path:string;
 }
 
 interface UserWithOrganization {
@@ -18,6 +19,7 @@ interface UserWithOrganization {
   fullName: string;
   organizationId: string;
   organizationName: string;
+  organizationPath: string;
 }
 
 // Định nghĩa Fetcher với Generic Type
@@ -234,6 +236,11 @@ const AttendanceJobsRunner: React.FC = () => {
   const EMPTY_USERS: UserWithOrganization[] = useMemo(() => [], []);
   const EMPTY_ORGS: OrganizationType[] = useMemo(() => [], []);
 
+  const getAllSegmentsFromString = (fullString?: string) => {
+  return fullString?.split('/').filter(Boolean) ?? [];
+};
+
+
   // Mock SWR for Users
   const { data: usersData, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>(
     `${API_BASE}/users/withOrganizationName`,
@@ -256,13 +263,17 @@ const AttendanceJobsRunner: React.FC = () => {
 
     // 1. Lọc theo Organization
     if (selectedOrganizationId) {
-      users = users.filter(user => user.organizationId === selectedOrganizationId);
+      users = users.filter(user => {
+    const segments = getAllSegmentsFromString(user.organizationPath);
+    segments.push(user.organizationId);
+    return segments.includes(selectedOrganizationId);
+  });
     }
 
     // 2. Lọc theo Name (case-insensitive)
     if (nameFilter) {
       const lowerCaseFilter = nameFilter.toLowerCase();
-      users = users.filter(user => user.name.toLowerCase().includes(lowerCaseFilter));
+      users = users.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
     }
 
     // Nếu người dùng đã chọn trước đó không còn trong danh sách lọc, reset
@@ -274,6 +285,8 @@ const AttendanceJobsRunner: React.FC = () => {
   }, [allUsers, selectedOrganizationId, nameFilter, selectedUserId]);
 
   // --- HANDLERS CHẠY JOB ---
+
+  
 
   const showJobStatus = (key: 'monthly' | 'logs', result: any, isError: boolean = false) => {
     const statusText = isError

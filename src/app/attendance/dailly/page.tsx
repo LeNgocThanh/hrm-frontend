@@ -210,7 +210,7 @@ function getEndOfDayInTz(dateKey: string, tz: string = DEFAULT_TIMEZONE): string
 
 // Hàm nhóm và tổng hợp Time Entries
 const groupAndSummarizeTimeEntries = (entries: UserTimeEntry[], tz: string): Map<string, TimeEntrySummary> => {
- 
+
   const map = new Map<string, TimeEntrySummary>();
 
   entries.forEach(entry => {
@@ -449,7 +449,10 @@ export default function DailyAttendancePage() {
     earlyLeaveMinutes: 0,
     workedMinutes: 0,
   });
-  
+
+  const getAllSegmentsFromString = (fullString?: string) => {
+    return fullString?.split('/').filter(Boolean) ?? [];
+  };
   const {
     data: usersData,
     error: usersError,
@@ -502,7 +505,11 @@ export default function DailyAttendancePage() {
 
     // 1. Lọc theo Organization
     if (selectedOrganizationId) {
-      users = users.filter(user => user.organizationId === selectedOrganizationId);
+      users = users.filter(user => {
+        const segments = getAllSegmentsFromString(user.organizationPath);
+        segments.push(user.organizationId);
+        return segments.includes(selectedOrganizationId);
+      });
     }
 
     // 2. Lọc theo Tên
@@ -889,7 +896,7 @@ export default function DailyAttendancePage() {
     // refresh bảng
     await fetchAttendanceDaily(selectedUserId, filterFrom, filterTo);
   };
-  
+
 
   const handleExportXlsx = async () => {
     if (!selectedUserId || dailyRows.length === 0) return;
@@ -1050,7 +1057,7 @@ export default function DailyAttendancePage() {
     ws.getCell(lastIdx, 12).alignment = { horizontal: 'right' }; // Tổng giờ
 
     // Auto-fit width
-    const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24,24];
+    const minWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24, 24];
     for (let c = 1; c <= 14; c++) {
       const col = ws.getColumn(c);
       let maxLen = (header[c - 1] || '').length + 2;
@@ -1217,8 +1224,8 @@ export default function DailyAttendancePage() {
         // sang user khác
         flushUserSummary();
         addTitleAndHeader();
-        stt = 1;       
-        currentUserId = r.userId;       
+        stt = 1;
+        currentUserId = r.userId;
       }
 
       const u = userById.get(r.userId);
@@ -1239,7 +1246,7 @@ export default function DailyAttendancePage() {
       const tongGio = round2(workMins / 60);
       const editNote = (r as any).editNote ?? '';
       const status = AT_STATUS[(r as any).status] ?? '';
-      
+
       const row = ws.addRow([
         stt++,
         userCode,
@@ -1294,7 +1301,7 @@ export default function DailyAttendancePage() {
     }
 
     // Auto-fit cột + set width tối thiểu
-    const colMinWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24,24];
+    const colMinWidths = [6, 14, 24, 24, 12, 8, 12, 12, 10, 10, 10, 12, 24, 24];
     for (let c = 1; c <= 14; c++) {
       const col = ws.getColumn(c);
       let maxLen = (header[c - 1] || '').toString().length + 2;
@@ -1583,7 +1590,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
       </div>
     );
   }
-  
+
 
   const formatMinutes = (minutes: number | undefined) => {
     if (minutes === undefined || minutes === 0) return '-';
@@ -1762,7 +1769,7 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 style={{
                   // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
                   fontWeight: isOvertime(row.workedMinutes) ? 'bold' : isUnderime(row.workedMinutes) ? 'italic' : 'normal',
-                  color: isOvertime(row.workedMinutes) ? 'red' : isUnderime(row.workedMinutes) ? 'blue' :'inherit',
+                  color: isOvertime(row.workedMinutes) ? 'red' : isUnderime(row.workedMinutes) ? 'blue' : 'inherit',
                 }}
 
                 // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
@@ -1778,14 +1785,14 @@ const DailyTable: React.FC<DailyTableProps> = ({ dailyRows, currentUserTz, isLoa
                 style={{
                   // Điều kiện: nếu lớn hơn 480 phút (8 giờ) thì in đậm và màu đỏ
                   fontWeight: isOvertime(row.workedCheckIn) ? 'bold' : isUnderime(row.workedCheckIn) ? 'italic' : 'normal',
-                  color: isOvertime(row.workedCheckIn) ? 'red' : isUnderime(row.workedCheckIn) ? 'blue' :'inherit',
+                  color: isOvertime(row.workedCheckIn) ? 'red' : isUnderime(row.workedCheckIn) ? 'blue' : 'inherit',
                 }}
 
                 // Tooltip: sử dụng thuộc tính 'title' để hiện chữ khi hover
                 title={isOvertime(row.workedCheckIn) ? 'Có tăng ca' : ''}
               >
                 {formatMinutes(row.workedCheckIn)}
-              </td> 
+              </td>
 
               {/* Đi Trễ/Về Sớm */}
               <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-red-500 font-medium">

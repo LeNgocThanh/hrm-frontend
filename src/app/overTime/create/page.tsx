@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { CompensationType_STATUS, OverTimeKind_STATUS } from '@/i18n/overTime.vi';
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 type ObjectId = string;
 
-enum OvertimeKind { WEEKDAY='WEEKDAY', WEEKEND='WEEKEND', HOLIDAY='HOLIDAY' }
-enum CompensationType { PAY='PAY', TIME_OFF='TIME_OFF' }
+enum OvertimeKind { WEEKDAY = 'WEEKDAY', WEEKEND = 'WEEKEND', HOLIDAY = 'HOLIDAY' }
+enum CompensationType { PAY = 'PAY', TIME_OFF = 'TIME_OFF' }
 
 type UserLite = { _id: ObjectId; fullName: string; email?: string };
 type UploadFileLite = { _id: ObjectId; fileName: string; url?: string; size?: number };
@@ -29,14 +31,14 @@ async function api(
 ) {
   const { method, query, body, headers } = opts;
   const url = new URL(path.replace(/^\//, ''), API_BASE + '/');
-  const qs = query ? '?' + new URLSearchParams(Object.entries(query).reduce((a,[k,v])=>{
-    if (v==null) return a;
+  const qs = query ? '?' + new URLSearchParams(Object.entries(query).reduce((a, [k, v]) => {
+    if (v == null) return a;
     a[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
     return a;
-  }, {} as Record<string,string>)).toString() : '';
+  }, {} as Record<string, string>)).toString() : '';
   const res = await fetch(`${url}${qs}`, {
     method: method || (body ? 'POST' : 'GET'),
-    headers: { 'Content-Type': 'application/json', ...(headers||{}) },
+    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'include',
   });
@@ -51,36 +53,70 @@ function toISO(date: string, hm: string) {
 function fmtDT(iso: string) { try { return new Date(iso).toLocaleString(); } catch { return iso; } }
 
 export default function OvertimeCreatePage() {
-  const { data: users } = useSWR<UserLite[]>('/users/by-organization', p=>fetcher(p), { revalidateOnFocus: false });
-  const todayStr = useMemo(()=> new Date().toISOString().slice(0,10), []);
+  const { data: users } = useSWR<UserWithOrganization[]>('/users/withOrganizationName', p => fetcher(p), { revalidateOnFocus: false });
+  const { data: orgsData, error: orgsError, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
+    `/organizations/under`,
+    (p) => fetcher(p),
+    { revalidateOnFocus: false }
+  );
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [userId, setUserId] = useState<string>('');
   const [compensation, setCompensation] = useState<CompensationType>(CompensationType.PAY);
   const [reason, setReason] = useState('');
-  const [files, setFiles] = useState<FileList|null>(null);
+  const [files, setFiles] = useState<FileList | null>(null);
   const [segments, setSegments] = useState<SegmentDraft[]>([
     { date: todayStr, startTime: '18:00', endTime: '21:00' },
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<string>('');
-  const [createdDoc, setCreatedDoc] = useState<any|null>(null);
+  const [createdDoc, setCreatedDoc] = useState<any | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(''); 
+  const [nameFilter, setNameFilter] = useState<string>('');
+  const EMPTY_USERS: UserWithOrganization[] = useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = useMemo(() => [], []);
+
+  const getAllSegmentsFromString = (fullString?: string) => {
+    return fullString?.split('/').filter(Boolean) ?? [];
+  };
+
+  const usersData = users ?? EMPTY_USERS;
+  const organizations = orgsData ?? EMPTY_ORGS;
+
+  const filteredUsers = useMemo(() => {
+    let userData = usersData;
+    if (selectedOrganizationId) {
+      userData = userData.filter(user => {
+        const segments = getAllSegmentsFromString(user.organizationPath);
+        segments.push(user.organizationId);
+        return segments.includes(selectedOrganizationId);
+      });
+    }
+    if (nameFilter) {
+      const lowerCaseFilter = nameFilter.toLowerCase();
+      userData = userData.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+    }
+    return userData;
+  }, [usersData, selectedOrganizationId, nameFilter]);
+
+  const userMap = useMemo(() => new Map((usersData || []).map(u => [String(u._id), u])), [usersData]);
 
   function addSeg() {
-    setSegments(s=>[...s, { date: todayStr, startTime: '18:00', endTime: '21:00' }]);
+    setSegments(s => [...s, { date: todayStr, startTime: '18:00', endTime: '21:00' }]);
   }
-  function removeSeg(i: number) { setSegments(s=>s.filter((_,idx)=>idx!==i)); }
+  function removeSeg(i: number) { setSegments(s => s.filter((_, idx) => idx !== i)); }
   function patchSeg(i: number, p: Partial<SegmentDraft>) {
-    setSegments(s=>{ const n=[...s]; n[i] = { ...n[i], ...p }; return n; });
+    setSegments(s => { const n = [...s]; n[i] = { ...n[i], ...p }; return n; });
   }
 
   function buildPayload() {
     if (!userId) throw new Error('Chọn người tăng ca.');
     if (!segments.length) throw new Error('Thêm ít nhất 1 khoảng tăng ca.');
-    const out = segments.map(s=>{
+    const out = segments.map(s => {
       const startAt = toISO(s.date, s.startTime);
       // Nếu end < start => qua ngày +1
       let end = new Date(`${s.date}T${s.endTime}:00`);
       const st = new Date(startAt);
-      if (end <= st) end = new Date(st.getTime() + 24*3600*1000 - (st.getHours()*3600*1000 + st.getMinutes()*60*1000)); // simpler: add 1 day if not later
+      if (end <= st) end = new Date(st.getTime() + 24 * 3600 * 1000 - (st.getHours() * 3600 * 1000 + st.getMinutes() * 60 * 1000)); // simpler: add 1 day if not later
       const endAt = end.toISOString();
       if (!(new Date(endAt) > st)) throw new Error('Khoảng giờ không hợp lệ.');
       return {
@@ -115,7 +151,7 @@ export default function OvertimeCreatePage() {
       const doc = await api(BASE, { method: 'POST', body: { ...payload, attachmentIds } });
       setCreatedDoc(doc);
       setMsg('Đã gửi đơn tăng ca.');
-      setReason(''); setFiles(null); setSegments([{ date: todayStr, startTime:'18:00', endTime:'21:00' }]);
+      setReason(''); setFiles(null); setSegments([{ date: todayStr, startTime: '18:00', endTime: '21:00' }]);
     } catch (err: any) {
       setMsg(err.message || 'Có lỗi.');
     } finally {
@@ -139,9 +175,9 @@ export default function OvertimeCreatePage() {
       createdAt: createdDoc.createdAt,
     } : buildPayload();
 
-    const requester = (users||[]).find(u=>String(u._id)===String(payload.userId))?.fullName || String(payload.userId);
-    const segRows = (payload.segments as any[]).map((s,i)=>{
-      return `<tr><td>${i+1}</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${OverTimeKind_STATUS[s.kind]||''}</td><td>${CompensationType_STATUS[s.compensationOverride]||''}</td></tr>`;
+    const requester = (users || []).find(u => String(u._id) === String(payload.userId))?.fullName || String(payload.userId);
+    const segRows = (payload.segments as any[]).map((s, i) => {
+      return `<tr><td>${i + 1}</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${OverTimeKind_STATUS[s.kind] || ''}</td><td>${CompensationType_STATUS[s.compensationOverride] || ''}</td></tr>`;
     }).join('');
 
     const idLine = (useCreated && (payload as any)._id) ? `<div><b>Mã đơn:</b> ${(payload as any)._id}</div>` : '';
@@ -169,7 +205,7 @@ export default function OvertimeCreatePage() {
       <div class="card">
         <div><b>Người tăng ca:</b> ${requester}</div>
         <div><b>Hình thức tính công:</b> ${CompensationType_STATUS[payload.compensation]}</div>
-        ${payload.reason ? `<div><b>Lý do:</b> ${payload.reason}</div>`:''}
+        ${payload.reason ? `<div><b>Lý do:</b> ${payload.reason}</div>` : ''}
       </div>
       <div class="card">
         <div style="font-weight:600;margin-bottom:8px;">Các khoảng tăng ca</div>
@@ -187,60 +223,87 @@ export default function OvertimeCreatePage() {
 
       <form onSubmit={onSubmit} className="grid gap-4 rounded-2xl border bg-white p-4">
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50" onClick={()=>printDoc(false)}>In (nháp)</button>
-          {createdDoc && <button type="button" className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50" onClick={()=>printDoc(true)}>In đã tạo</button>}
+          <button type="button" className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50" onClick={() => printDoc(false)}>In (nháp)</button>
+          {createdDoc && <button type="button" className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50" onClick={() => printDoc(true)}>In đã tạo</button>}
+        </div>
+        
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+          <select
+            value={selectedOrganizationId}
+            onChange={(e) => setSelectedOrganizationId(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={isLoadingOrganizations}
+          >
+            <option value="">Tất cả Tổ chức</option>
+            {organizations.map((org) => (
+              <option key={org._id} value={org._id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Tên nhân viên */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Tìm Tên Nhân Viên</label>
+          <input
+            type="text"
+            placeholder="Nhập tên nhân viên..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
         </div>
 
         <Field label="Người tăng ca">
-          <select className="h-10 rounded-md border px-3 text-sm" value={userId} onChange={e=>setUserId(e.target.value)}>
+          <select className="h-10 rounded-md border px-3 text-sm" value={userId} onChange={e => setUserId(e.target.value)}>
             <option value="">— Chọn —</option>
-            {(users||[]).slice().sort((a,b)=>a.fullName.localeCompare(b.fullName,'vi')).map(u=>(
+            {(filteredUsers || []).slice().sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi')).map(u => (
               <option key={u._id} value={String(u._id)}>{u.fullName}</option>
             ))}
           </select>
         </Field>
 
         <Field label="Hình thức tính công">
-          <select className="h-10 rounded-md border px-3 text-sm" value={compensation} onChange={e=>setCompensation(e.target.value as CompensationType)}>
-            {Object.values(CompensationType).map(v=><option key={v} value={v}>{CompensationType_STATUS[v]}</option>)}
+          <select className="h-10 rounded-md border px-3 text-sm" value={compensation} onChange={e => setCompensation(e.target.value as CompensationType)}>
+            {Object.values(CompensationType).map(v => <option key={v} value={v}>{CompensationType_STATUS[v]}</option>)}
           </select>
         </Field>
 
         <Field label="Lý do">
-          <textarea className="min-h-[80px] rounded-md border p-3 text-sm" value={reason} onChange={e=>setReason(e.target.value)} />
+          <textarea className="min-h-[80px] rounded-md border p-3 text-sm" value={reason} onChange={e => setReason(e.target.value)} />
         </Field>
 
         {/* Segments */}
         <div className="rounded-xl border p-3">
           <div className="mb-2 text-sm font-medium">Các khoảng tăng ca</div>
           <div className="grid gap-3">
-            {segments.map((s, i)=>(
+            {segments.map((s, i) => (
               <div key={i} className="rounded-lg border p-3">
                 <div className="grid gap-3 md:grid-cols-5">
                   <Field label="Ngày">
-                    <input type="date" className="h-10 w-full rounded-md border px-3 text-sm" value={s.date} onChange={e=>patchSeg(i,{date:e.target.value})} />
+                    <input type="date" className="h-10 w-full rounded-md border px-3 text-sm" value={s.date} onChange={e => patchSeg(i, { date: e.target.value })} />
                   </Field>
                   <Field label="Từ giờ">
-                    <input type="time" className="h-10 w-full rounded-md border px-3 text-sm" value={s.startTime} onChange={e=>patchSeg(i,{startTime:e.target.value})}/>
+                    <input type="time" className="h-10 w-full rounded-md border px-3 text-sm" value={s.startTime} onChange={e => patchSeg(i, { startTime: e.target.value })} />
                   </Field>
                   <Field label="Đến giờ">
-                    <input type="time" className="h-10 w-full rounded-md border px-3 text-sm" value={s.endTime} onChange={e=>patchSeg(i,{endTime:e.target.value})}/>
+                    <input type="time" className="h-10 w-full rounded-md border px-3 text-sm" value={s.endTime} onChange={e => patchSeg(i, { endTime: e.target.value })} />
                   </Field>
                   <Field label="Loại tăng ca (tuỳ chọn)">
-                    <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.kind||''} onChange={e=>patchSeg(i,{kind: e.target.value as OvertimeKind || undefined})}>
+                    <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.kind || ''} onChange={e => patchSeg(i, { kind: e.target.value as OvertimeKind || undefined })}>
                       <option value="">(Auto)</option>
-                      {Object.values(OvertimeKind).map(k=><option key={k} value={k}>{OverTimeKind_STATUS[k]}</option>)}
+                      {Object.values(OvertimeKind).map(k => <option key={k} value={k}>{OverTimeKind_STATUS[k]}</option>)}
                     </select>
                   </Field>
                   <Field label="Comp Override">
-                    <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.compensationOverride||''} onChange={e=>patchSeg(i,{compensationOverride: e.target.value as CompensationType || undefined})}>
+                    <select className="h-10 w-full rounded-md border px-3 text-sm" value={s.compensationOverride || ''} onChange={e => patchSeg(i, { compensationOverride: e.target.value as CompensationType || undefined })}>
                       <option value="">(Theo đơn)</option>
-                      {Object.values(CompensationType).map(k=><option key={k} value={k}>{CompensationType_STATUS[k]}</option>)}
+                      {Object.values(CompensationType).map(k => <option key={k} value={k}>{CompensationType_STATUS[k]}</option>)}
                     </select>
                   </Field>
                 </div>
                 <div className="mt-2">
-                  <button type="button" className="h-9 rounded-md border px-2 text-sm hover:bg-slate-50" onClick={()=>removeSeg(i)}>Xoá</button>
+                  <button type="button" className="h-9 rounded-md border px-2 text-sm hover:bg-slate-50" onClick={() => removeSeg(i)}>Xoá</button>
                 </div>
               </div>
             ))}
@@ -251,7 +314,7 @@ export default function OvertimeCreatePage() {
         </div>
 
         <Field label="Tệp đính kèm">
-          <input type="file" multiple onChange={(e)=>setFiles(e.target.files)} className="block text-sm" />
+          <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="block text-sm" />
         </Field>
 
         <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, CreateUserData, UpdateUserData } from '../../types';
+import { User, CreateUserData, UpdateUserData, UserWithOrganization } from '../../types';
 import { apiClient } from '../../lib/api';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -10,9 +10,19 @@ import UserAssignments from './UserAssignments';
 import UserProfileManagement from './UserProfileManagement';
 import UserDocumentManagement from './UserDocumentManagement';
 import { EDUCATION_LEVELS_VI, EDUCATION_LEVELS_OPTIONS, WORK_TYPE_OPTIONS, workTypeOptions } from "@/i18n/user.vi"
+import useSWR from "swr";
+import { Organization as OrganizationType } from "@/types/organization";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+};
 
 export default function UsersManagement() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithOrganization[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +33,7 @@ export default function UsersManagement() {
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [showDetailView, setShowDetailView] = useState(false);
   const [viewMode, setViewMode] = useState(false);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
 
   // Filter and sort states
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +55,20 @@ export default function UsersManagement() {
 
   const [showUserAssignments, setShowUserAssignments] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
+  const getAllSegmentsFromString = (fullString?: string) => {
+  return fullString?.split('/').filter(Boolean) ?? [];
+};
+
+const { data: orgsData, error: orgsError, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
+    `${API_BASE}/organizations/under`,
+    fetcher<OrganizationType[]>,
+    { revalidateOnFocus: false }
+  );
+
+  const organizations = orgsData ?? EMPTY_ORGS;
+  
   
   useEffect(() => {
     fetchUsers();
@@ -51,7 +76,7 @@ export default function UsersManagement() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [users, searchTerm, genderFilter, statusFilter, sortField, sortDirection]);
+  }, [users, searchTerm, genderFilter, statusFilter, sortField, sortDirection, selectedOrganizationId]);
 
   const applyFiltersAndSort = () => {
     let filtered = [...users];
@@ -67,7 +92,12 @@ export default function UsersManagement() {
     if (genderFilter) {
       filtered = filtered.filter(user => user.gender === genderFilter);
     }
-
+    
+    if (selectedOrganizationId && selectedOrganizationId !== '') {
+      filtered = filtered.filter(user => {const segments = getAllSegmentsFromString(user.organizationPath);
+    segments.push(user.organizationId);
+    return segments.includes(selectedOrganizationId);});
+    }
     // Filter by employee status
     if (statusFilter) {
       filtered = filtered.filter(user => user.employeeStatus === statusFilter);
@@ -124,8 +154,8 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getUsersByOrganizations();
-      setUsers(data as User[]);
+      const data = await apiClient.getUsersUnderOrganizations();
+      setUsers(data as UserWithOrganization[]);
       setError(null);
     } catch (err) {
 
@@ -255,19 +285,7 @@ export default function UsersManagement() {
     setShowDetailView(false);
     setCreatedUserId(null);
   };
-
-  function hasAllManagePermission(userInfo: { scopedPermissions: { permissions: any; }; }) {
-    // Sử dụng optional chaining (?.) để tránh lỗi nếu các thuộc tính không tồn tại
-    const permissions = userInfo?.scopedPermissions?.permissions;
-
-    // Kiểm tra nếu permissions là một mảng và chứa "All:manage"
-    if (Array.isArray(permissions)) {
-      return permissions.includes("All:manage");
-    }
-
-    // Trả về false nếu permissions không phải là mảng hoặc không tồn tại
-    return false;
-  }
+  
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -294,6 +312,20 @@ export default function UsersManagement() {
       {/* Search and Filter Controls */}
       <div className="mb-6 bg-gray-50 p-4 rounded-lg border">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+           <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+          <select
+            value={selectedOrganizationId}
+            onChange={(e) => setSelectedOrganizationId(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={isLoadingOrganizations}
+          >
+            <option value="">Tất cả Tổ chức</option>
+            {organizations.map((org) => (
+              <option key={org._id} value={org._id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tìm kiếm theo tên

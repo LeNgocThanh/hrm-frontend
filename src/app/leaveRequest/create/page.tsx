@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import {LeaveType, LeaveUnit} from '@/types/leave';
+import { LeaveType, LeaveUnit } from '@/types/leave';
 import { LT_STATUS, LT_UNIT, STATUS_OPTIONS_LT } from '@/i18n/leaveRequest.vi';
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
+import React from 'react';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
 // ====== Types tối thiểu dùng ở client ======
@@ -26,13 +29,13 @@ async function api(
   const url = new URL(path.replace(/^\//, ''), API_BASE + '/');
   const qs = query
     ? '?' +
-      new URLSearchParams(
-        Object.entries(query).reduce((acc, [k, v]) => {
-          if (v === undefined || v === null) return acc;
-          acc[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
-          return acc;
-        }, {} as Record<string, string>),
-      ).toString()
+    new URLSearchParams(
+      Object.entries(query).reduce((acc, [k, v]) => {
+        if (v === undefined || v === null) return acc;
+        acc[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return acc;
+      }, {} as Record<string, string>),
+    ).toString()
     : '';
   const res = await fetch(`${url}${qs}`, {
     method: method || (body ? 'POST' : 'GET'),
@@ -66,8 +69,16 @@ function fmtDT(d: string) {
 
 export default function CreateLeavePage() {
   // ====== load users ======
-  const { data: users } = useSWR<UserLite[]>('/users/by-organization', (p) => fetcher(p), { revalidateOnFocus: false });
-  const userMap = useMemo(()=> new Map((users||[]).map(u=>[String(u._id), u])), [users]);
+  const { data: users } = useSWR<UserWithOrganization[]>('/users/withOrganizationName', (p) => fetcher(p), { revalidateOnFocus: false });
+   const { data: orgsData, error: orgsError, isLoading: isLoadingOrganizations } = useSWR<OrganizationType[]>(
+    `/organizations/under`,
+    (p) => fetcher(p),
+    { revalidateOnFocus: false }
+  );
+ 
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
+    const [userCode, setUserCode] = useState("");
+    const [nameFilter, setNameFilter] = useState<string>('');
 
   // ====== state form ======
   const [userId, setUserId] = useState<string>('');
@@ -77,13 +88,39 @@ export default function CreateLeavePage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [createdDoc, setCreatedDoc] = useState<any | null>(null); // lưu doc sau khi tạo để in “bản chính”
+  const EMPTY_USERS: UserWithOrganization[] = useMemo(() => [], []);
+  const EMPTY_ORGS: OrganizationType[] = useMemo(() => [], []);
 
+  const getAllSegmentsFromString = (fullString?: string) => {
+    return fullString?.split('/').filter(Boolean) ?? [];
+  };
   // Segments
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [segments, setSegments] = useState<SegmentDraft[]>([
     { unit: LeaveUnit.DAY, fromDate: todayStr, toDate: todayStr, singleDay: true },
   ]);
+
+  
+
+  const usersData = users ?? EMPTY_USERS;
+  const organizations = orgsData ?? EMPTY_ORGS;
+
+  const filteredUsers = useMemo(() => {
+      let userData = usersData;
+      if (selectedOrganizationId) {
+      userData = userData.filter(user => {const segments = getAllSegmentsFromString(user.organizationPath);
+      segments.push(user.organizationId);
+      return segments.includes(selectedOrganizationId);});
+      }
+      if (nameFilter) {
+        const lowerCaseFilter = nameFilter.toLowerCase();
+        userData = userData.filter(user => user.fullName.toLowerCase().includes(lowerCaseFilter));
+      }      
+      return userData;
+    }, [usersData, selectedOrganizationId, nameFilter]);
+
+     const userMap = useMemo(() => new Map((usersData || []).map(u => [String(u._id), u])), [usersData]);
 
   function addSegment(kind: LeaveUnit) {
     if (kind === LeaveUnit.DAY) {
@@ -170,11 +207,11 @@ export default function CreateLeavePage() {
 
   // IN: render HTML rồi window.open + print
   function printRequest(w: Window, options?: { useCreated?: boolean }) {
-  const useCreated = !!options?.useCreated && !!createdDoc;
+    const useCreated = !!options?.useCreated && !!createdDoc;
 
-  // Lấy payload
-  const payload = useCreated
-    ? {
+    // Lấy payload
+    const payload = useCreated
+      ? {
         userId: String(createdDoc.userId?._id ?? createdDoc.userId),
         leaveType: String(createdDoc.leaveType),
         reason: createdDoc.reason,
@@ -182,34 +219,34 @@ export default function CreateLeavePage() {
         _id: String(createdDoc._id),
         createdAt: createdDoc.createdAt,
       }
-    : (() => {
+      : (() => {
         // build từ form hiện tại (có thể throw nếu thiếu field)
         const p = buildPayload();
         return { ...p, _id: undefined, createdAt: undefined };
       })();
 
-  const requester =
-    userMap.get(payload.userId as string)?.fullName || (payload.userId as string);
+    const requester =
+      userMap.get(payload.userId as string)?.fullName || (payload.userId as string);
 
-  const segRows = (payload.segments as any[])
-    .map((s: any, i: number) => {
-      if (s.unit === 'DAY') {
-        return `<tr><td>${i + 1}</td><td>DAY</td><td>${fmtDate(s.fromDate)} → ${fmtDate(s.toDate)}</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
-      } else if (s.unit === 'HALF_DAY') {
-        return `<tr><td>${i + 1}</td><td>HALF_DAY</td><td>${fmtDate(s.date)} (${s.slot})</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
-      } else {
-        return `<tr><td>${i + 1}</td><td>HOUR</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
-      }
-    })
-    .join('');
+    const segRows = (payload.segments as any[])
+      .map((s: any, i: number) => {
+        if (s.unit === 'DAY') {
+          return `<tr><td>${i + 1}</td><td>DAY</td><td>${fmtDate(s.fromDate)} → ${fmtDate(s.toDate)}</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
+        } else if (s.unit === 'HALF_DAY') {
+          return `<tr><td>${i + 1}</td><td>HALF_DAY</td><td>${fmtDate(s.date)} (${s.slot})</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
+        } else {
+          return `<tr><td>${i + 1}</td><td>HOUR</td><td>${fmtDT(s.startAt)} → ${fmtDT(s.endAt)}</td><td>${typeof s.hours === 'number' ? s.hours : ''}</td></tr>`;
+        }
+      })
+      .join('');
 
-  const idLine = useCreated && payload._id ? `<div><b>Mã đơn:</b> ${payload._id}</div>` : '';
-  const createdAt =
-    useCreated && payload.createdAt
-      ? `<div><b>Ngày tạo:</b> ${fmtDT(payload.createdAt as string)}</div>`
-      : '';
+    const idLine = useCreated && payload._id ? `<div><b>Mã đơn:</b> ${payload._id}</div>` : '';
+    const createdAt =
+      useCreated && payload.createdAt
+        ? `<div><b>Ngày tạo:</b> ${fmtDT(payload.createdAt as string)}</div>`
+        : '';
 
-  const html = `<!doctype html>
+    const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
@@ -267,8 +304,8 @@ export default function CreateLeavePage() {
   </div>
   <script>window.print()</script>
 </body>
-</html>`;    
-    
+</html>`;
+
     w.document.open();
     w.document.write(html);
     w.document.close();
@@ -308,15 +345,15 @@ export default function CreateLeavePage() {
           <button
             type="button"
             onClick={() => {
-      // Mở popup ĐỒNG BỘ theo yêu cầu
-      const w = window.open('', '_blank', 'width=1024,height=768');
-      if (!w) return alert('Trình duyệt chặn cửa sổ. Hãy cho phép pop-up.');
-      // Ghi tạm nội dung chờ dựng xong
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Đơn nghỉ phép</title></head><body>Đang chuẩn bị nội dung…</body></html>');
-      w.document.close();
-      // Dựng và in
-      printRequest(w, { useCreated: false });
-    }}
+              // Mở popup ĐỒNG BỘ theo yêu cầu
+              const w = window.open('', '_blank', 'width=1024,height=768');
+              if (!w) return alert('Trình duyệt chặn cửa sổ. Hãy cho phép pop-up.');
+              // Ghi tạm nội dung chờ dựng xong
+              w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Đơn nghỉ phép</title></head><body>Đang chuẩn bị nội dung…</body></html>');
+              w.document.close();
+              // Dựng và in
+              printRequest(w, { useCreated: false });
+            }}
             className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50"
             title="In bản nháp theo dữ liệu đang nhập"
           >
@@ -325,13 +362,13 @@ export default function CreateLeavePage() {
           {createdDoc && (
             <button
               type="button"
-             onClick={() => {
-        const w = window.open('', '_blank', 'width=1024,height=768');
-        if (!w) return alert('Trình duyệt chặn cửa sổ. Hãy cho phép pop-up.');
-        w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Đơn nghỉ phép</title></head><body>Đang chuẩn bị nội dung…</body></html>');
-        w.document.close();
-        printRequest(w, { useCreated: true });
-      }}
+              onClick={() => {
+                const w = window.open('', '_blank', 'width=1024,height=768');
+                if (!w) return alert('Trình duyệt chặn cửa sổ. Hãy cho phép pop-up.');
+                w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Đơn nghỉ phép</title></head><body>Đang chuẩn bị nội dung…</body></html>');
+                w.document.close();
+                printRequest(w, { useCreated: true });
+              }}
               className="h-10 rounded-md border px-3 text-sm hover:bg-slate-50"
               title="In bản đã tạo (kèm mã đơn)"
             >
@@ -339,12 +376,38 @@ export default function CreateLeavePage() {
             </button>
           )}
         </div>
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Chọn Tổ Chức</label>
+          <select
+            value={selectedOrganizationId}
+            onChange={(e) => setSelectedOrganizationId(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={isLoadingOrganizations}
+          >
+            <option value="">Tất cả Tổ chức</option>
+            {organizations.map((org) => (
+              <option key={org._id} value={org._id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Tên nhân viên */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700 mb-1">Tìm Tên Nhân Viên</label>
+          <input
+            type="text"
+            placeholder="Nhập tên nhân viên..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="block w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
 
         {/* Người nghỉ */}
         <Field label="Người nghỉ">
           <select className="h-10 rounded-md border px-3 text-sm" value={userId} onChange={(e) => setUserId(e.target.value)}>
             <option value="">— Chọn —</option>
-            {(users || [])
+            {(filteredUsers || [])
               .slice()
               .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
               .map((u) => (
@@ -364,8 +427,8 @@ export default function CreateLeavePage() {
           >
             {Object.values(LeaveType).map((t) => (
               <option key={t} value={t}>
-               {/* {STATUS_OPTIONS_LT.find(option => option.value === t)?.label} */}
-               {LT_STATUS[t]}
+                {/* {STATUS_OPTIONS_LT.find(option => option.value === t)?.label} */}
+                {LT_STATUS[t]}
               </option>
             ))}
           </select>

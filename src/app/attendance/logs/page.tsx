@@ -173,6 +173,10 @@ export default function AttendanceLogsPage() {
   const EMPTY_USERS: UserWithOrganization[] = React.useMemo(() => [], []);
   const EMPTY_ORGS: OrganizationType[] = React.useMemo(() => [], []);
 
+  const getAllSegmentsFromString = (fullString?: string) => {
+  return fullString?.split('/').filter(Boolean) ?? [];
+};
+
   const { data: usersData, error: usersError, isLoading: isLoadingUsers } = useSWR<UserWithOrganization[]>(
     `${API_BASE}/users/withOrganizationName`,
     fetcher<UserWithOrganization[]>,
@@ -191,7 +195,9 @@ export default function AttendanceLogsPage() {
   const filteredUsers = useMemo(() => {
     let userData = users;
     if (selectedOrganizationId) {
-      userData = userData.filter(user => user.organizationId === selectedOrganizationId);
+    userData = userData.filter(user => {const segments = getAllSegmentsFromString(user.organizationPath);
+    segments.push(user.organizationId);
+    return segments.includes(selectedOrganizationId);});
     }
     if (nameFilter) {
       const lowerCaseFilter = nameFilter.toLowerCase();

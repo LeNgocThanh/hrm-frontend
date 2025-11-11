@@ -8,7 +8,7 @@ const USER_POLICY_BASE_URL = `${API_BASE}/user-policy-bindings`
 const SHIFT_TYPE_BASE_URL = `${API_BASE}/shift-types`
 const UserPolicyType = { SHIFT_TYPE: 'SHIFT_TYPE' } as const
 
-interface UserWithOrganization { _id: string; fullName: string; organizationId?: string }
+interface UserWithOrganization { _id: string; fullName: string; organizationId?: string; organizationPath?: string }
 interface OrganizationType { _id: string; name: string }
 interface ShiftType { _id: string; code: string; name: string }
 interface UserPolicyBinding { _id: string; userId: string; policyType: string; policyCode: string; effectiveFrom?: string; effectiveTo?: string }
@@ -188,10 +188,15 @@ const UserShiftPolicyPage: React.FC = () => {
   const [nameFilter, setNameFilter] = useState('')
   const allUsers = users ?? []
   const organizations = orgsData ?? []
+  const getAllSegmentsFromString = (fullString?: string) => {
+  return fullString?.split('/').filter(Boolean) ?? [];
+};
 
   const filteredUsers = useMemo(() => {
     let data = allUsers
-    if (selectedOrganizationId) data = data.filter(u => u.organizationId === selectedOrganizationId)
+    if (selectedOrganizationId) data = data.filter(u => {const segments = getAllSegmentsFromString(u.organizationPath);
+    segments.push(u.organizationId);
+    return segments.includes(selectedOrganizationId);})
     if (nameFilter) data = data.filter(u => u.fullName.toLowerCase().includes(nameFilter.toLowerCase()))
     return data
   }, [allUsers, selectedOrganizationId, nameFilter])

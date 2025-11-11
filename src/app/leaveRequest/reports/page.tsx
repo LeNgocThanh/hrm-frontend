@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { STATUS_OPTIONS_LT, LT_STATUS, LT_UNIT, UNIT_OPTIONS_LT } from '@/i18n/leaveRequest.vi';
+import { UserWithOrganization } from "@/types";
+import { Organization as OrganizationType } from "@/types/organization";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.amore.id.vn';
 
@@ -160,8 +162,11 @@ export default function LeaveOverviewReportsPage() {
   }, [granularity]);
 
   const swrOpts = { revalidateOnFocus: false, dedupingInterval: 30_000 };
-  const { data: users } = useSWR<UserLite[]>('/users/by-organization', (p) => fetcher(p), swrOpts);
+  const { data: users } = useSWR<UserWithOrganization[]>('/users/withOrganizationName', (p) => fetcher(p), swrOpts);
   const userMap = useMemo(() => new Map((Array.isArray(users) ? users : []).map(u => [String(u._id), u])), [users]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
+  const [userCode, setUserCode] = useState("");
+  const [nameFilter, setNameFilter] = useState<string>('');
 
   // Fetch approved
   const { data: leaves } = useSWR<LeaveRequest[]>(
