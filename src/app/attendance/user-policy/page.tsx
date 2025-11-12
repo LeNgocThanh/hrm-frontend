@@ -195,7 +195,8 @@ const UserShiftPolicyPage: React.FC = () => {
   const filteredUsers = useMemo(() => {
     let data = allUsers
     if (selectedOrganizationId) data = data.filter(u => {const segments = getAllSegmentsFromString(u.organizationPath);
-    segments.push(u.organizationId);
+      if(u.organizationId) {
+    segments.push(u.organizationId);}
     return segments.includes(selectedOrganizationId);})
     if (nameFilter) data = data.filter(u => u.fullName.toLowerCase().includes(nameFilter.toLowerCase()))
     return data

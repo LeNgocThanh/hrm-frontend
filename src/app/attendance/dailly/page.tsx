@@ -507,7 +507,9 @@ export default function DailyAttendancePage() {
     if (selectedOrganizationId) {
       users = users.filter(user => {
         const segments = getAllSegmentsFromString(user.organizationPath);
-        segments.push(user.organizationId);
+        if (user.organizationId) {
+          segments.push(user.organizationId);
+        }
         return segments.includes(selectedOrganizationId);
       });
     }
