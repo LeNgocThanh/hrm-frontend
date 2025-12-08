@@ -6,4 +6,5 @@ export interface Position {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+  code: string;
 } 

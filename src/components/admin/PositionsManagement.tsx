@@ -45,7 +45,7 @@ const tdStyle: React.CSSProperties = {
 
 const PositionsManagement: React.FC = () => {
   const [positions, setPositions] = useState<Position[]>([]);
-  const [form, setForm] = useState<Partial<Position>>({ name: '', description: '', level: 1, isActive: true });
+  const [form, setForm] = useState<Partial<Position>>({ name: '', description: '', level: 1, isActive: true, code :'' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,7 +64,7 @@ const PositionsManagement: React.FC = () => {
     } else {
       await createPosition(form);
     }
-    setForm({ name: '', description: '', level: 1, isActive: true });
+    setForm({ name: '', description: '', level: 1, isActive: true, code : '' });
     setEditingId(null);
     fetchPositions();
   };
@@ -76,6 +76,7 @@ const PositionsManagement: React.FC = () => {
       description: pos.description,
       level: pos.level,
       isActive: pos.isActive,
+      code: pos.code?? '',
     });
     setEditingId(pos._id);
   };
@@ -106,6 +107,12 @@ const PositionsManagement: React.FC = () => {
         />
         <input
           style={inputStyle}
+          placeholder="Code"
+          value={form.code || ''}
+          onChange={e => setForm({ ...form, code: e.target.value })}
+        />
+        <input
+          style={inputStyle}
           type="number"
           min={1}
           placeholder="Cấp bậc (level)"
@@ -127,6 +134,7 @@ const PositionsManagement: React.FC = () => {
           <tr>
             <th style={thStyle}>Tên chức danh</th>
             <th style={thStyle}>Mô tả</th>
+            <th style={thStyle}>Code</th>
             <th style={thStyle}>Cấp bậc</th>
             <th style={thStyle}>Hoạt động</th>
             <th style={thStyle}>Hành động</th>
@@ -137,6 +145,7 @@ const PositionsManagement: React.FC = () => {
             <tr key={pos._id}>
               <td style={tdStyle}>{pos.name}</td>
               <td style={tdStyle}>{pos.description}</td>
+              <td style={tdStyle}>{pos.code?? ''}</td>
               <td style={tdStyle}>{pos.level}</td>
               <td style={tdStyle}>{pos.isActive ? '✔️' : '❌'}</td>
               <td style={tdStyle}>

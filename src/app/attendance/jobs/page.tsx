@@ -10,7 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 interface OrganizationType {
   _id: string;
   name: string;
-  path:string;
+  path: string;
 }
 
 interface UserWithOrganization {
@@ -72,7 +72,7 @@ const getEndOfWeek = (date: Date): string => {
   const d = new Date(date);
   const day = d.getDay();
   // Nếu là Chủ Nhật (0) thì diff là 0, nếu không thì 7 - day
-  const diff = d.getDate() + (day === 0 ? 0 : 7 - day); 
+  const diff = d.getDate() + (day === 0 ? 0 : 7 - day);
   d.setDate(diff);
   return dateKey(d);
 };
@@ -84,7 +84,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   onClick?: () => void;
   // Sửa lỗi: Đặt 'loading' là optional hoặc cung cấp giá trị mặc định cho nó trong component
-  loading?: boolean; 
+  loading?: boolean;
   primary?: boolean;
 }
 
@@ -236,9 +236,12 @@ const AttendanceJobsRunner: React.FC = () => {
   const EMPTY_USERS: UserWithOrganization[] = useMemo(() => [], []);
   const EMPTY_ORGS: OrganizationType[] = useMemo(() => [], []);
 
+  const [isDailyBatchJobLoading, setIsDailyBatchJobLoading] = useState<boolean>(false);
+  const [dailyBatchJobResult, setDailyBatchJobResult] = useState<string>('');
+
   const getAllSegmentsFromString = (fullString?: string) => {
-  return fullString?.split('/').filter(Boolean) ?? [];
-};
+    return fullString?.split('/').filter(Boolean) ?? [];
+  };
 
 
   // Mock SWR for Users
@@ -264,11 +267,12 @@ const AttendanceJobsRunner: React.FC = () => {
     // 1. Lọc theo Organization
     if (selectedOrganizationId) {
       users = users.filter(user => {
-    const segments = getAllSegmentsFromString(user.organizationPath);
-    if(user.organizationId) {
-    segments.push(user.organizationId);}
-    return segments.includes(selectedOrganizationId);
-  });
+        const segments = getAllSegmentsFromString(user.organizationPath);
+        if (user.organizationId) {
+          segments.push(user.organizationId);
+        }
+        return segments.includes(selectedOrganizationId);
+      });
     }
 
     // 2. Lọc theo Name (case-insensitive)
@@ -287,9 +291,13 @@ const AttendanceJobsRunner: React.FC = () => {
 
   // --- HANDLERS CHẠY JOB ---
 
-  
 
-  const showJobStatus = (key: 'monthly' | 'logs', result: any, isError: boolean = false) => {
+
+  const showJobStatus = (
+    key: 'monthly' | 'logs' | 'dailyBatch',
+    result: any,
+    isError: boolean = false,
+  ) => {
     const statusText = isError
       ? `LỖI: ${result.message || JSON.stringify(result)}`
       : `THÀNH CÔNG: ${JSON.stringify(result)}`;
@@ -298,15 +306,32 @@ const AttendanceJobsRunner: React.FC = () => {
       setMonthlyJobResult(statusText);
     } else if (key === 'logs') {
       setLogsJobResult(statusText);
+    } else if (key === 'dailyBatch') {
+      setDailyBatchJobResult(statusText);
     }
   };
 
-  const handleRunJob = async (endpoint: string, payload: any, jobKey: 'monthly' | 'logs') => {
-    const setLoading = jobKey === 'monthly' ? setIsMonthlyJobLoading : setIsLogsJobLoading;
+  const handleRunJob = async (
+    endpoint: string,
+    payload: any,
+    jobKey: 'monthly' | 'logs' | 'dailyBatch',
+  ) => {
+    const setLoading =
+      jobKey === 'monthly'
+        ? setIsMonthlyJobLoading
+        : jobKey === 'logs'
+          ? setIsLogsJobLoading
+          : setIsDailyBatchJobLoading;
+
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/attendance-job/${endpoint}`, {
+      // Nếu endpoint bắt đầu bằng '/', coi là path đầy đủ; nếu không thì gắn vào /attendance-job
+      const url = endpoint.startsWith('/')
+        ? `${API_BASE}${endpoint}`
+        : `${API_BASE}/attendance-job/${endpoint}`;
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,9 +343,9 @@ const AttendanceJobsRunner: React.FC = () => {
         // Cố gắng đọc lỗi JSON từ body
         let errorData: any = {};
         try {
-            errorData = await res.json();
+          errorData = await res.json();
         } catch (e) {
-            errorData = { message: `Lỗi HTTP ${res.status}: ${res.statusText}` };
+          errorData = { message: `Lỗi HTTP ${res.status}: ${res.statusText}` };
         }
         showJobStatus(jobKey, errorData, true);
         return;
@@ -366,7 +391,7 @@ const AttendanceJobsRunner: React.FC = () => {
       setLogsJobResult('Vui lòng chọn đầy đủ ngày Bắt Đầu và Kết Thúc (YYYY-MM-DD).');
       return;
     }
-    
+
     // Đảm bảo from <= to
     if (rangeFrom > rangeTo) {
       setLogsJobResult('LỖI: Ngày Bắt Đầu không được lớn hơn Ngày Kết Thúc.');
@@ -384,11 +409,43 @@ const AttendanceJobsRunner: React.FC = () => {
     handleRunJob('runLogsOverNightToDailyManual', payload, 'logs');
   };
 
+  const handleRunDailyRecomputeRange = (): void => {
+    // bắt buộc from/to
+    if (!rangeFrom || !rangeTo) {
+      setDailyBatchJobResult('Vui lòng chọn đầy đủ ngày Bắt Đầu và Kết Thúc (YYYY-MM-DD).');
+      return;
+    }
+
+    if (rangeFrom > rangeTo) {
+      setDailyBatchJobResult('LỖI: Ngày Bắt Đầu không được lớn hơn Ngày Kết Thúc.');
+      return;
+    }
+
+    // Nếu có selectedUserId -> chỉ chạy user đó; nếu không -> lấy tất cả user đang được filter
+    const userIds = selectedUserId
+      ? [selectedUserId]
+      : filteredUsers.map((u) => u._id);
+
+    if (!userIds.length) {
+      setDailyBatchJobResult('Không có người dùng nào trong danh sách lọc hiện tại.');
+      return;
+    }
+
+    const payload = {
+      userIds,
+      from: rangeFrom,
+      to: rangeTo,
+    };
+
+    // gọi endpoint batch bên backend: POST /attendance-daily/recompute-range-batch
+    handleRunJob('/attendance/recompute', payload, 'dailyBatch');
+  };
+
   // --- UI ---
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
       <h1 className="text-3xl font-extrabold text-gray-800 mb-8 border-b-4 border-blue-500 pb-2">
-        Công Cụ Chạy Jobs Tính lương Thủ Công 
+        Công Cụ Chạy Jobs Tính lương Thủ Công
       </h1>
 
       {/* 1. User Selection Section */}
@@ -412,7 +469,7 @@ const AttendanceJobsRunner: React.FC = () => {
           <h2 className="text-2xl font-bold flex items-center text-green-700 border-b pb-2">
             <Calendar className="w-6 h-6 mr-2" />
             Job: Tổng Hợp từ chấm công ngày thành tháng
-          </h2>        
+          </h2>
 
           {/* Time Picker */}
           <div className="space-y-2">
@@ -437,7 +494,7 @@ const AttendanceJobsRunner: React.FC = () => {
                 onChange={(e) => {
                   setMonthlyAllUsers(e.target.checked);
                   // Khi chọn "Tất cả Users", ta bỏ chọn cá nhân để tránh gửi cả 2
-                  if (e.target.checked) setSelectedUserId(''); 
+                  if (e.target.checked) setSelectedUserId('');
                 }}
                 className="rounded text-green-600 focus:ring-green-500"
               />
@@ -471,10 +528,10 @@ const AttendanceJobsRunner: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-blue-100 space-y-4">
           <h2 className="text-2xl font-bold flex items-center text-orange-700 border-b pb-2">
             <Calendar className="w-6 h-6 mr-2" />
-            Job: Chạy dữ liệu chấm công để tính ngày công 
+            Job: Chạy dữ liệu chấm công để tính ngày công
           </h2>
 
-       
+
 
           {/* Time Range Pickers */}
           <div className="space-y-3">
@@ -565,6 +622,78 @@ const AttendanceJobsRunner: React.FC = () => {
               {logsJobResult || 'Chưa chạy...'}
             </p>
           </div>
+        </div>
+      </div>
+      <div className="mt-8 bg-white p-6 rounded-2xl shadow-xl border border-blue-100 space-y-4">
+        <h2 className="text-2xl font-bold flex items-center text-purple-700 border-b pb-2">
+          <Calendar className="w-6 h-6 mr-2" />
+          Job: Tính lại công theo khoảng ngày (batch Daily)
+        </h2>
+
+        <p className="text-sm text-gray-600">
+          - Nếu chọn <b>một nhân viên</b> ở trên: job sẽ chỉ chạy cho nhân viên đó. <br />
+          - Nếu <b>không chọn nhân viên</b>: job sẽ chạy cho <b>toàn bộ nhân viên trong danh sách lọc</b>
+          (theo Phòng ban + Tên).
+        </p>
+
+        {/* Dùng lại khoảng ngày rangeFrom / rangeTo */}
+        <div className="space-y-3">
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Từ Ngày (From)
+              </label>
+              <input
+                type="date"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-xl focus:ring-purple-500 focus:border-purple-500 transition duration-150"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Đến Ngày (To)
+              </label>
+              <input
+                type="date"
+                value={rangeTo}
+                onChange={(e) => setRangeTo(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-xl focus:ring-purple-500 focus:border-purple-500 transition duration-150"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            Có thể dùng lại khoảng ngày giống Job Logs To Daily phía trên.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>
+            Người đang chọn:{' '}
+            {selectedUserId
+              ? filteredUsers.find((u) => u._id === selectedUserId)?.fullName || selectedUserId
+              : 'Không - sẽ chạy cho toàn bộ danh sách lọc'}
+          </span>
+          <span>Đang lọc: {filteredUsers.length} người dùng</span>
+        </div>
+
+        <Button
+          onClick={handleRunDailyRecomputeRange}
+          loading={isDailyBatchJobLoading}
+          primary={true}
+        >
+          Chạy Job Tính Lại Công (Daily Batch)
+        </Button>
+
+        <div className="mt-4 p-3 bg-gray-100 rounded-xl text-sm break-words whitespace-pre-wrap">
+          <p className="font-semibold text-gray-700">Trạng Thái Job:</p>
+          <p
+            className={
+              dailyBatchJobResult.startsWith('LỖI') ? 'text-red-500' : 'text-gray-900'
+            }
+          >
+            {dailyBatchJobResult || 'Chưa chạy...'}
+          </p>
         </div>
       </div>
     </div>

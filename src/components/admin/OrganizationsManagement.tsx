@@ -13,6 +13,17 @@ interface Organization {
   parent?: string;
   level: number;
   createdAt: string;
+  code?: string | null;
+}
+
+interface FormData {
+  isActive: boolean; 
+  name: string;
+  description?: string;
+  path?: string;
+  parent?: string;
+  level: number; 
+  code?: string | null;
 }
 
 interface TreeNode extends Organization {
@@ -29,13 +40,14 @@ export default function OrganizationsManagement() {
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [selectedParent, setSelectedParent] = useState<string>('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     parent: '',
     path: '',
     level: 1,
-    isActive: true
+    isActive: true,
+    code: null,
   });
   const { apiCall } = useAuth();
 
@@ -100,6 +112,10 @@ export default function OrganizationsManagement() {
         submitData.path = '';
         submitData.level = 1;
       }
+      if(formData.code && formData.code === '')
+      {
+        submitData.code = undefined;
+      }
 
       if (editingOrg) {
         await apiClient.put(`/organizations/${editingOrg._id}`, submitData);
@@ -114,7 +130,7 @@ export default function OrganizationsManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', parent: '', path: '', level: 1, isActive: true });
+    setFormData({ name: '', description: '', parent: '', path: '', level: 1, isActive: true, code: null });
     setEditingOrg(null);
     setShowCreateForm(false);
     setSelectedParent('');
@@ -127,7 +143,8 @@ export default function OrganizationsManagement() {
       parent: org.parent || '',
       path: org.path || '',
       level: org.level,
-      isActive: org.isActive
+      isActive: org.isActive, 
+      code: org.code || '',
     });
     setEditingOrg(org);
     setShowCreateForm(true);
@@ -141,7 +158,8 @@ export default function OrganizationsManagement() {
       parent: parentId,
       path: '',
       level: 1,
-      isActive: true
+      isActive: true,
+      code: '',
     });
     setEditingOrg(null);
     setShowCreateForm(true);
@@ -273,6 +291,17 @@ export default function OrganizationsManagement() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Code dùng để định danh và sử dụng cho import
+              </label>
+              <textarea
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={1}
               />
             </div>
             <div>

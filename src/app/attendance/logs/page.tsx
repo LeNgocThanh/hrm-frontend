@@ -5,6 +5,7 @@ import { getDayNameFromDate } from "@/utils/date-helpers";
 import useSWR from "swr";
 import { UserWithOrganization } from "@/types";
 import { Organization as OrganizationType } from "@/types/organization";
+import * as XLSX from 'xlsx';
 
 // ==== CONFIG ====
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -730,6 +731,7 @@ function splitCsvLine(line: string): string[] {
 
 // ===== Import helpers =====
 function combineDateAndTime(dateCell: any, timeCell: any): string | null {
+  const dateParse = excelSerialToDate2(dateCell)
   const datePart = toDateFromCell(dateCell); const timePart = toTimePartsFromCell(timeCell);
   if (!datePart || !timePart) return null; const d = new Date(datePart);
   d.setHours(timePart.hh, timePart.mm, timePart.ss ?? 0, 0);
@@ -753,7 +755,8 @@ function toTimePartsFromCell(v: any): { hh: number; mm: number; ss?: number } | 
   if (m) { const hh = +m[1], mm = +m[2], ss = m[3] ? +m[3] : undefined; if (hh >= 0 && hh < 24 && mm >= 0 && mm < 60 && (ss == null || (ss >= 0 && ss < 60))) return { hh, mm, ss }; }
   return null;
 }
-function excelSerialToDate(serial: number): Date | null { const excelEpoch = new Date(Date.UTC(1899, 11, 30)); const millis = Math.round(serial * 24 * 60 * 60 * 1000); const d = new Date(excelEpoch.getTime() + millis); return isNaN(d.getTime()) ? null : d; }
+function excelSerialToDate(serial: number): Date | null { const excelEpoch = new Date(Date.UTC(1899, 11, 30)); 
+  const millis = Math.round(serial * 24 * 60 * 60 * 1000); const d = new Date(excelEpoch.getTime() + millis); return isNaN(d.getTime()) ? null : d; }
 
 async function buildPayloadFromUserCode(
   rawRows: any[],
@@ -820,3 +823,9 @@ async function prefetchAssignmentsByCode(codes: string[]) {
 
   return codeToUserId;
 }
+
+function excelSerialToDate2(value: number): Date | undefined {
+  const parsed = XLSX.SSF.parse_date_code(value);
+  if (!parsed) return undefined;
+  // Dùng UTC để tránh lệch ngày do timezone
+  return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));

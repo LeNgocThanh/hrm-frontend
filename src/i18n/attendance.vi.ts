@@ -5,11 +5,12 @@ export const AT_STATUS: Record<string, string> = {
     EARLY_LEAVE: 'Về sớm',
     HOLIDAY: 'Ngày lễ',
     LEAVE: 'Ngày nghỉ',
-    FULL: 'Đi làm',
+    FULL: 'Làm Full',
     HALF_AM: 'Nửa ngày sáng',
     HALF_PM: 'Nửa ngày chiều',
-    PARTIAL: 'Làm một phần',
-    OVERTIME: 'Tăng ca',
+    PARTIAL: 'Đi làm',
+    OT: 'Tăng ca',
+    OFF: 'Ngày nghỉ không lương',   
 };
 
 export const STATUS_OPTIONS_AT = (Object.keys(AT_STATUS) as string[]).map(v => ({ value: v, label: AT_STATUS[v] }));
